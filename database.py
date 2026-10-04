@@ -10,33 +10,34 @@ SCHEMA = Path(__file__).parent / "schema.sql"
 
 def init_db():
     """Kreira tabele ako ne postoje."""
-    conn = connect()
+    from db_adapter import get_conn, USE_POSTGRES, adapt_schema
+
+    conn = get_conn()
     with open(SCHEMA, "r", encoding="utf-8") as f:
         schema_sql = f.read()
 
     if USE_POSTGRES:
         schema_sql = adapt_schema(schema_sql)
-        # PostgreSQL ne podržava CREATE VIEW IF NOT EXISTS direktno
-        schema_sql = schema_sql.replace("CREATE VIEW IF NOT EXISTS", "CREATE OR REPLACE VIEW")
-        schema_sql = schema_sql.replace("CREATE TABLE IF NOT EXISTS", "CREATE TABLE IF NOT EXISTS")
-        # Ispravi trigger syntax koji PostgreSQL ne razume (SQLite specifičan)
         schema_sql = _strip_sqlite_only_triggers(schema_sql)
-        # Izvrši svaki statement odvojeno
+
+        # Izvrši svaki statement u SVOJOJ transakciji
         for stmt in _split_sql(schema_sql):
             stmt = stmt.strip()
             if not stmt:
                 continue
             try:
-                conn.execute(stmt)
+                cur = conn.cursor()
+                cur.execute(stmt)
+                conn.commit()
             except Exception as e:
-                # Preskoči "already exists" greške
+                conn.rollback()   # KLJUČNO za PostgreSQL
                 msg = str(e).lower()
                 if "already exists" not in msg:
                     print(f"⚠️  Preskočeno: {stmt[:60]}... ({e})")
     else:
         conn.executescript(schema_sql)
+        conn.commit()
 
-    conn.commit()
     conn.close()
 
     backend = "PostgreSQL" if USE_POSTGRES else "SQLite"

@@ -59,20 +59,58 @@ def adapt_query(sql):
 def adapt_schema(schema_sql):
     """
     Prilagodi SQL šemu za PostgreSQL:
-    - AUTOINCREMENT -> SERIAL (preko INTEGER PRIMARY KEY)
+    - AUTOINCREMENT -> SERIAL
     - datetime('now') -> CURRENT_TIMESTAMP
-    - RAISE() trigeri se preskaču (SQLite-only)
+    - PRAGMA ... -> obriši (SQLite-only)
+    - INSERT OR IGNORE -> INSERT ... ON CONFLICT DO NOTHING
+    - CREATE VIEW IF NOT EXISTS -> CREATE OR REPLACE VIEW
     """
     if not USE_POSTGRES:
         return schema_sql
 
-    # AUTOINCREMENT ne postoji u PostgreSQL - koristi SERIAL
+    import re
+
+    # 1. AUTOINCREMENT ne postoji u PostgreSQL - koristi SERIAL
     schema_sql = schema_sql.replace(
         "INTEGER PRIMARY KEY AUTOINCREMENT",
         "SERIAL PRIMARY KEY"
     )
-    # datetime('now') -> CURRENT_TIMESTAMP
+
+    # 2. datetime('now') -> CURRENT_TIMESTAMP
     schema_sql = schema_sql.replace("datetime('now')", "CURRENT_TIMESTAMP")
+
+    # 3. PRAGMA ... ; -> obriši celu liniju (SQLite-only)
+    schema_sql = re.sub(
+        r"^\s*PRAGMA\s+[^;]+;\s*$",
+        "",
+        schema_sql,
+        flags=re.MULTILINE | re.IGNORECASE
+    )
+
+    # 4. INSERT OR IGNORE INTO -> INSERT INTO ... ON CONFLICT DO NOTHING
+    def replace_insert_or_ignore(match):
+        stmt = match.group(0)
+        trailing = ""
+        if stmt.rstrip().endswith(";"):
+            stmt = stmt.rstrip()[:-1]
+            trailing = ";"
+        stmt = re.sub(r"\bINSERT\s+OR\s+IGNORE\s+INTO\b",
+                      "INSERT INTO", stmt, flags=re.IGNORECASE)
+        stmt = stmt.rstrip() + "\nON CONFLICT DO NOTHING" + trailing
+        return stmt
+
+    schema_sql = re.sub(
+        r"INSERT\s+OR\s+IGNORE\s+INTO\s+.*?;",
+        replace_insert_or_ignore,
+        schema_sql,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+
+    # 5. CREATE VIEW IF NOT EXISTS -> CREATE OR REPLACE VIEW
+    schema_sql = schema_sql.replace(
+        "CREATE VIEW IF NOT EXISTS",
+        "CREATE OR REPLACE VIEW"
+    )
 
     return schema_sql
 
