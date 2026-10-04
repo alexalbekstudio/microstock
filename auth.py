@@ -145,27 +145,34 @@ def login():
 
         user_row = get_user_by_email(email)
         if user_row and check_password_hash(user_row["password_hash"], password):
+            # Provera da li je nalog aktivan
             if not user_row["active"]:
                 flash("Nalog je deaktiviran.", "err")
                 return render_template("login.html")
-                user = User(
-                    user_row["id"], user_row["email"],
-                    user_row["name"], user_row["role"],
-                    language=user_row["language"] if "language" in user_row.keys() else "sr",
-                    currency=user_row["currency"] if "currency" in user_row.keys() else "RSD",
-                    )
+
+            # Napravi User objekat
+            user = User(
+                user_row["id"],
+                user_row["email"],
+                user_row["name"],
+                user_row["role"],
+                language=user_row["language"] if "language" in user_row.keys() else "sr",
+                currency=user_row["currency"] if "currency" in user_row.keys() else "RSD",
+            )
             login_user(user, remember=True)
 
             # Postavi jezik i valutu u sesiju
             from flask import session
             session["lang"] = user.language
             session["currency"] = user.currency
+
             # Ažuriraj last_login
             conn = connect()
             conn.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id=?",
                          (user.id,))
             conn.commit()
             conn.close()
+
             flash(f"Dobrodošao, {user.name or user.email}!", "ok")
             next_page = request.args.get("next")
             return redirect(next_page or url_for("index"))
