@@ -1,5 +1,9 @@
 -- schema.sql (PostgreSQL verzija - 2026-10-04)
-
+-- ============================================
+-- DROP VIEW-ova pre CREATE (da bi se osvežili tipovi kolona)
+-- ============================================
+DROP VIEW IF EXISTS v_order_profit;
+DROP VIEW IF EXISTS v_project_summary;
 -- Tabele
 CREATE TABLE IF NOT EXISTS channels (
     id          SERIAL PRIMARY KEY,
