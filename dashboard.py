@@ -39,13 +39,13 @@ def control_center(days=30):
 
     # Projekti sa rokom u narednih 14 dana
     soon_deadlines = conn.execute("""
-        SELECT id, code, name, client, deadline
-        FROM projects
-        WHERE status='active'
-          AND deadline IS NOT NULL
-          AND date(deadline) <= date('now', '+14 days')
-        ORDER BY deadline ASC LIMIT 5
-    """).fetchall()
+            SELECT id, code, name, client, deadline
+            FROM projects
+            WHERE status='active'
+            AND deadline IS NOT NULL
+            AND deadline <= CURRENT_DATE + INTERVAL '14 days'
+            ORDER BY deadline ASC LIMIT 5
+        """).fetchall()
 
     conn.close()
 

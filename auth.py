@@ -41,7 +41,7 @@ login_manager.login_message_category = "err"
 @login_manager.user_loader
 def load_user(user_id):
     conn = connect()
-    row = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+    row = conn.execute("SELECT * FROM users WHERE id=%s", (user_id,)).fetchone()
     conn.close()
     if not row or not row["active"]:
         return None
@@ -56,7 +56,7 @@ def load_user(user_id):
 
 def get_user_by_email(email):
     conn = connect()
-    row = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+    row = conn.execute("SELECT * FROM users WHERE email=%s", (email,)).fetchone()
     conn.close()
     return row
 
@@ -66,11 +66,11 @@ def create_user(email, password, name="", role="admin"):
     pw_hash = generate_password_hash(password)
     conn = connect()
     conn.execute(
-        "INSERT INTO users (email, password_hash, name, role) VALUES (?,?,?,?)",
+        "INSERT INTO users (email, password_hash, name, role) VALUES (%s,%s,%s,%s)",
         (email.lower().strip(), pw_hash, name, role)
     )
     conn.commit()
-    row = conn.execute("SELECT id FROM users WHERE email=?", (email.lower().strip(),)).fetchone()
+    row = conn.execute("SELECT id FROM users WHERE email=%s", (email.lower().strip(),)).fetchone()
     conn.close()
     return row["id"]
 
@@ -168,7 +168,7 @@ def login():
 
             # Ažuriraj last_login
             conn = connect()
-            conn.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id=?",
+            conn.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id=%s",
                          (user.id,))
             conn.commit()
             conn.close()
@@ -213,7 +213,7 @@ def profile():
                 flash("Nova šifra mora imati bar 6 znakova.", "err")
                 return redirect(url_for("auth.profile"))
             new_hash = generate_password_hash(new_pw)
-            conn.execute("UPDATE users SET password_hash=? WHERE id=?",
+            conn.execute("UPDATE users SET password_hash=? WHERE id=%s",
                          (new_hash, current_user.id))
 
         if new_name:

@@ -272,7 +272,7 @@ def import_rows(rows, mapping, channel_id, source_name,
         INSERT INTO import_logs
         (user_id, source, filename, rows_total, rows_imported,
          rows_skipped, rows_failed, errors)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     """, (user_id, source_name, filename, len(rows),
           results["imported"], results["skipped"], results["failed"],
           json.dumps(results["errors"][:50], ensure_ascii=False)))
@@ -287,7 +287,7 @@ def _import_group(conn, ext_id, group, mapping, channel_id, source_name,
     """Uvozi jednu narudžbinu (može imati više stavki)."""
     from models import create_order, get_order_by_external_id
 
-    # Duplikat?
+    # Duplikat%s
     if ext_id:
         existing = get_order_by_external_id(ext_id, source_name)
         if existing:
@@ -349,11 +349,11 @@ def _build_item(conn, row, mapping, auto_create_products, results):
     # Nađi proizvod po SKU, pa po imenu
     product_id = None
     if sku:
-        row_db = conn.execute("SELECT id FROM products WHERE sku=?", (str(sku).strip(),)).fetchone()
+        row_db = conn.execute("SELECT id FROM products WHERE sku=%s", (str(sku).strip(),)).fetchone()
         if row_db:
             product_id = row_db["id"]
     if not product_id and name:
-        row_db = conn.execute("SELECT id FROM products WHERE name=?", (str(name).strip(),)).fetchone()
+        row_db = conn.execute("SELECT id FROM products WHERE name=%s", (str(name).strip(),)).fetchone()
         if row_db:
             product_id = row_db["id"]
 
@@ -363,7 +363,7 @@ def _build_item(conn, row, mapping, auto_create_products, results):
         new_name = str(name).strip() if name else f"Proizvod {new_sku}"
         cur = conn.execute("""
             INSERT INTO products (sku, name, price, cost, stock, low_stock_at)
-            VALUES (?, ?, ?, 0, 0, 3)
+            VALUES (%s, %s, %s, 0, 0, 3)
         """, (new_sku, new_name, price or 0))
         conn.commit()
         product_id = cur.lastrowid

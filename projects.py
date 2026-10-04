@@ -19,7 +19,7 @@ def list_members(only_active=True):
 def add_member(name, role, hourly_rate):
     conn = connect()
     conn.execute(
-        "INSERT INTO team_members (name, role, hourly_rate) VALUES (?,?,?)",
+        "INSERT INTO team_members (name, role, hourly_rate) VALUES (%s,%s,%s)",
         (name, role, hourly_rate)
     )
     conn.commit(); conn.close()
@@ -31,7 +31,7 @@ def list_projects(status=None):
     sql = "SELECT * FROM v_project_summary WHERE 1=1"
     params = []
     if status:
-        sql += " AND status = ?"
+        sql += " AND status = %s"
         params.append(status)
     sql += " ORDER BY (status='active') DESC, start_date DESC"
     conn = connect()
@@ -42,7 +42,7 @@ def list_projects(status=None):
 def get_project(pid):
     conn = connect()
     row = conn.execute(
-        "SELECT * FROM v_project_summary WHERE project_id=?", (pid,)
+        "SELECT * FROM v_project_summary WHERE project_id=%s", (pid,)
     ).fetchone()
     conn.close()
     if not row:
@@ -53,7 +53,7 @@ def add_project(code, name, client, contract_value, start_date, deadline, notes=
     conn = connect()
     conn.execute("""
         INSERT INTO projects (code, name, client, contract_value, start_date, deadline, notes)
-        VALUES (?,?,?,?,?,?,?)
+        VALUES (%s,%s,%s,%s,%s,%s,%s)
     """, (code, name, client, contract_value, start_date, deadline, notes))
     conn.commit(); conn.close()
 
@@ -61,15 +61,15 @@ def update_project(pid, code, name, client, contract_value, start_date, deadline
     conn = connect()
     conn.execute("""
         UPDATE projects
-           SET code=?, name=?, client=?, contract_value=?,
-               start_date=?, deadline=?, status=?, notes=?
-         WHERE id=?
+           SET code=%s, name=%s, client=%s, contract_value=%s,
+               start_date=%s, deadline=%s, status=%s, notes=%s
+         WHERE id=%s
     """, (code, name, client, contract_value, start_date, deadline, status, notes, pid))
     conn.commit(); conn.close()
 
 def delete_project(pid):
     conn = connect()
-    conn.execute("DELETE FROM projects WHERE id=?", (pid,))
+    conn.execute("DELETE FROM projects WHERE id=%s", (pid,))
     conn.commit(); conn.close()
 
 
@@ -81,7 +81,7 @@ def list_time(project_id):
         SELECT te.*, tm.name AS member_name, tm.hourly_rate,
                (te.hours * tm.hourly_rate) AS cost
         FROM time_entries te JOIN team_members tm ON tm.id = te.member_id
-        WHERE te.project_id = ?
+        WHERE te.project_id = %s
         ORDER BY te.entry_date DESC, te.id DESC
     """, (project_id,)).fetchall()
     conn.close()
@@ -91,13 +91,13 @@ def add_time(project_id, member_id, entry_date, hours, description=""):
     conn = connect()
     conn.execute("""
         INSERT INTO time_entries (project_id, member_id, entry_date, hours, description)
-        VALUES (?,?,?,?,?)
+        VALUES (%s,%s,%s,%s,%s)
     """, (project_id, member_id, entry_date, hours, description))
     conn.commit(); conn.close()
 
 def delete_time(entry_id):
     conn = connect()
-    conn.execute("DELETE FROM time_entries WHERE id=?", (entry_id,))
+    conn.execute("DELETE FROM time_entries WHERE id=%s", (entry_id,))
     conn.commit(); conn.close()
 
 
@@ -106,7 +106,7 @@ def delete_time(entry_id):
 def list_expenses(project_id):
     conn = connect()
     rows = conn.execute("""
-        SELECT * FROM project_expenses WHERE project_id=? ORDER BY expense_date DESC, id DESC
+        SELECT * FROM project_expenses WHERE project_id=%s ORDER BY expense_date DESC, id DESC
     """, (project_id,)).fetchall()
     conn.close()
     return rows
@@ -115,13 +115,13 @@ def add_expense(project_id, expense_date, category, description, amount):
     conn = connect()
     conn.execute("""
         INSERT INTO project_expenses (project_id, expense_date, category, description, amount)
-        VALUES (?,?,?,?,?)
+        VALUES (%s,%s,%s,%s,%s)
     """, (project_id, expense_date, category, description, amount))
     conn.commit(); conn.close()
 
 def delete_expense(expense_id):
     conn = connect()
-    conn.execute("DELETE FROM project_expenses WHERE id=?", (expense_id,))
+    conn.execute("DELETE FROM project_expenses WHERE id=%s", (expense_id,))
     conn.commit(); conn.close()
 
 
@@ -227,8 +227,8 @@ def _update_alert_state(project_id, level):
     conn = connect()
     cur = conn.cursor()
     cur.execute(
-        "UPDATE projects SET last_alert_level = ?, "
-        "last_alert_sent_at = CURRENT_TIMESTAMP WHERE id = ?",
+        "UPDATE projects SET last_alert_level = %s, "
+        "last_alert_sent_at = CURRENT_TIMESTAMP WHERE id = %s",
         (level, project_id),
     )
     conn.commit()
@@ -239,7 +239,7 @@ def add_expense(project_id, expense_date, category, description, amount):
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO project_expenses (project_id, expense_date, category, description, amount)
-        VALUES (?,?,?,?,?)
+        VALUES (%s,%s,%s,%s,%s)
     """, (project_id, expense_date, category, description, amount))
     new_id = cur.lastrowid
     conn.commit()
@@ -254,7 +254,7 @@ def add_time(project_id, member_id, entry_date, hours, description=""):
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO time_entries (project_id, member_id, entry_date, hours, description)
-        VALUES (?,?,?,?,?)
+        VALUES (%s,%s,%s,%s,%s)
     """, (project_id, member_id, entry_date, hours, description))
     new_id = cur.lastrowid
     conn.commit()

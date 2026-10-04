@@ -65,7 +65,7 @@ def set_language(lang):
     if current_user.is_authenticated:
         from db_adapter import connect
         conn = connect()
-        conn.execute("UPDATE users SET language=? WHERE id=?",
+        conn.execute("UPDATE users SET language=%s WHERE id=%s",
                      (lang, current_user.id))
         conn.commit()
         conn.close()
@@ -88,7 +88,7 @@ def set_currency(cur):
     if current_user.is_authenticated:
         from db_adapter import connect
         conn = connect()
-        conn.execute("UPDATE users SET currency=? WHERE id=?",
+        conn.execute("UPDATE users SET currency=%s WHERE id=%s",
                      (cur, current_user.id))
         conn.commit()
         conn.close()
@@ -441,7 +441,7 @@ def _resolve_channel(payload):
         raise ValueError("Nedostaje 'channel' ili 'channel_id'")
     from db_adapter import connect as db_connect
     conn = db_connect()
-    row = conn.execute("SELECT id FROM channels WHERE name=?", (name,)).fetchone()
+    row = conn.execute("SELECT id FROM channels WHERE name=%s", (name,)).fetchone()
     conn.close()
     if not row:
         raise ValueError(f"Nepoznat kanal: {name}")
@@ -460,7 +460,7 @@ def _resolve_items(items_in):
         if "product_id" in it:
             out.append({"product_id": int(it["product_id"]), "qty": qty})
         elif "sku" in it:
-            row = conn.execute("SELECT id FROM products WHERE sku=?", (it["sku"],)).fetchone()
+            row = conn.execute("SELECT id FROM products WHERE sku=%s", (it["sku"],)).fetchone()
             if not row:
                 raise ValueError(f"Nepoznat SKU: {it['sku']}")
             out.append({"product_id": row["id"], "qty": qty})
@@ -1224,7 +1224,7 @@ def import_confirm():
         preset_channel = PRESETS.get(preset_key, {}).get("channel")
         if preset_channel:
             conn = connect()
-            row = conn.execute("SELECT id FROM channels WHERE name=?",
+            row = conn.execute("SELECT id FROM channels WHERE name=%s",
                                (preset_channel,)).fetchone()
             conn.close()
             if row:

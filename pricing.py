@@ -19,7 +19,7 @@ Terminologija:
 
 def recommended_price(cost, margin_pct, fee_pct=0, shipping=0, tax_pct=0):
     """
-    Kolika treba da bude prodajna cena da bi ostvario datu maržu?
+    Kolika treba da bude prodajna cena da bi ostvario datu maržu%s
 
     Formula:
         price = (cost + shipping) / (1 - fee_pct/100 - tax_pct/100 - margin_pct/100)
@@ -63,7 +63,7 @@ def recommended_price(cost, margin_pct, fee_pct=0, shipping=0, tax_pct=0):
 
 def analyze_price(cost, price, fee_pct=0, shipping=0, tax_pct=0):
     """
-    Koliki je profit/marža za datu prodajnu cenu?
+    Koliki je profit/marža za datu prodajnu cenu%s
     Vraća isti dict format kao recommended_price().
     """
     cost = float(cost or 0)
@@ -94,7 +94,7 @@ def analyze_price(cost, price, fee_pct=0, shipping=0, tax_pct=0):
 
 def price_from_markup(cost, markup_pct, fee_pct=0, shipping=0, tax_pct=0):
     """
-    Alternativa: kolika cena daje željeni MARKUP (a ne maržu)?
+    Alternativa: kolika cena daje željeni MARKUP (a ne maržu)%s
     markup = profit / (cost + shipping)
     """
     cost = float(cost or 0)
@@ -127,7 +127,7 @@ def log_calculation(user_id, product_id, product_name, mode,
             (user_id, product_id, product_name, mode,
              cost, shipping, fee_pct, tax_pct, margin_pct,
              price, profit, markup_pct, applied)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             user_id, product_id, product_name, mode,
             float(cost or 0), float(shipping or 0),
@@ -155,12 +155,12 @@ def list_history(limit=100, user_id=None, product_id=None):
         """
         params = []
         if user_id:
-            sql += " AND h.user_id = ?"
+            sql += " AND h.user_id = %s"
             params.append(user_id)
         if product_id:
-            sql += " AND h.product_id = ?"
+            sql += " AND h.product_id = %s"
             params.append(product_id)
-        sql += " ORDER BY h.created_at DESC LIMIT ?"
+        sql += " ORDER BY h.created_at DESC LIMIT %s"
         params.append(limit)
 
         rows = conn.execute(sql, params).fetchall()
@@ -200,7 +200,7 @@ def get_preset(preset_id):
     conn = connect()
     try:
         row = conn.execute(
-            "SELECT * FROM channel_presets WHERE id=?", (preset_id,)
+            "SELECT * FROM channel_presets WHERE id=%s", (preset_id,)
         ).fetchone()
         if not row:
             return None
@@ -217,7 +217,7 @@ def add_preset(name, fee_pct, tax_pct=0):
     conn = connect()
     try:
         cur = conn.execute(
-            "INSERT INTO channel_presets (name, fee_pct, tax_pct) VALUES (?,?,?)",
+            "INSERT INTO channel_presets (name, fee_pct, tax_pct) VALUES (%s,%s,%s)",
             (name.strip(), float(fee_pct or 0), float(tax_pct or 0))
         )
         conn.commit()
@@ -231,7 +231,7 @@ def update_preset(preset_id, name, fee_pct, tax_pct=0):
     conn = connect()
     try:
         conn.execute(
-            "UPDATE channel_presets SET name=?, fee_pct=?, tax_pct=? WHERE id=?",
+            "UPDATE channel_presets SET name=%s, fee_pct=%s, tax_pct=%s WHERE id=%s",
             (name.strip(), float(fee_pct or 0), float(tax_pct or 0), preset_id)
         )
         conn.commit()
@@ -243,7 +243,7 @@ def delete_preset(preset_id):
     from db_adapter import connect
     conn = connect()
     try:
-        conn.execute("DELETE FROM channel_presets WHERE id=?", (preset_id,))
+        conn.execute("DELETE FROM channel_presets WHERE id=%s", (preset_id,))
         conn.commit()
     finally:
         conn.close()

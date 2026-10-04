@@ -1,270 +1,292 @@
 # db_adapter.py
 """
-Apstrakcija između SQLite (lokalno) i PostgreSQL (produkcija).
+Adapter za PostgreSQL (Render i lokalno).
+- connect() vraća konekciju sa RealDictCursor (redovi se ponašaju kao dict).
+- execute() prima SQL sa %s placeholderima (PostgreSQL stil).
+- Postoji i helper query() koji odmah vraća listu dict-ova.
 
-Detekcija:
-- Ako postoji env varijabla DATABASE_URL -> koristi PostgreSQL
-- Inače -> koristi SQLite (inventory.db u istom folderu)
-
-Obezbeđuje isti interfejs (get_conn(), Row kao dict, upitnik ? -> %s).
+NAPOMENA: Ovaj adapter je namenjen ISKLJUČIVO PostgreSQL-u.
+Ako želite da podržite i SQLite, javite — ali preporuka je
+da svuda koristite PostgreSQL da izbegnete dijalekt razlike.
 """
+
 import os
-import sqlite3
-from pathlib import Path
+import logging
+from contextlib import contextmanager
 
-# Učitaj .env ako postoji (lokalno)
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-DB_PATH = Path(__file__).parent / "inventory.db"
-
-USE_POSTGRES = bool(DATABASE_URL)
-
-if USE_POSTGRES:
-    import psycopg2
-    import psycopg2.extras
+import psycopg2
+import psycopg2.extras
+from psycopg2 import pool as pg_pool
 
 
-# ==================== KONEKCIJA ====================
+log = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Kompatibilnost sa starim API-jem (SQLite + PostgreSQL)
+# ---------------------------------------------------------------------------
+# Ostali moduli u projektu (auth.py, models.py, backup.py, itd.) očekuju
+# ove simbole iz starog db_adapter-a. Pošto smo prešli na PostgreSQL-only,
+# ostavljamo ih kao stubove.
+
+# Uvek PostgreSQL (nema više SQLite fallback-a)
+USE_POSTGRES = True
+
+# Za backup.py — puna URL adresa baze
+DATABASE_URL = None  # postavlja se lenjo preko _database_url()
+
+
+def _refresh_module_globals():
+    """Popunjava module-level konstante nakon što se učita .env."""
+    global DATABASE_URL
+    DATABASE_URL = _database_url()
+
+
+# Ove funkcije su stubovi — u PostgreSQL-only režimu nisu potrebne,
+# ali ih ostali moduli mogu pozivati.
 def get_conn():
-    if USE_POSTGRES:
-        # Render ponekad daje URL sa prefiksom "postgres://" (staro),
-        # psycopg2 zahteva "postgresql://"
-        url = DATABASE_URL
-        if url.startswith("postgres://"):
-            url = url.replace("postgres://", "postgresql://", 1)
-        conn = psycopg2.connect(url, cursor_factory=psycopg2.extras.RealDictCursor)
-        return conn
-    else:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
-        return conn
+    """
+    Vraća _ConnWrapper (isto kao connect()) — kompatibilnost sa starim kodom.
+    """
+    return connect()
 
-
-# ==================== PREVODILAC UPITA ====================
 
 def adapt_query(sql):
-    """
-    SQLite -> PostgreSQL prevodilac upita.
-    Podržava:
-    - ? -> %s
-    - datetime('now') -> CURRENT_TIMESTAMP
-    - date('now') -> CURRENT_DATE
-    - date('now', '+N days') -> (CURRENT_DATE + INTERVAL 'N days')
-    - date('now', ?) -> rešava se u adapt_query_and_params
-    - kolona >= CURRENT_DATE/TIMESTAMP -> kolona::timestamp >= ...
-    """
-    if not USE_POSTGRES:
-        return sql
-
-    import re
-
-    # 1. Parametri
-    sql = sql.replace("?", "%s")
-
-    # 2. datetime('now') -> CURRENT_TIMESTAMP
-    sql = sql.replace("datetime('now')", "CURRENT_TIMESTAMP")
-
-    # 3. date('now') bez parametara -> CURRENT_DATE
-    sql = re.sub(r"date\('now'\)", "CURRENT_DATE", sql)
-
-    # 4. date('now', 'literal') sa literalnim stringom
-    def repl_date_offset(m):
-        sign = m.group(1)
-        num = m.group(2)
-        unit = m.group(3)
-        if sign == "-":
-            return f"(CURRENT_DATE - INTERVAL '{num} {unit}')"
-        else:
-            return f"(CURRENT_DATE + INTERVAL '{num} {unit}')"
-
-    sql = re.sub(
-        r"date\('now',\s*'([+-])(\d+)\s+(days?|months?|years?)'\)",
-        repl_date_offset,
-        sql,
-        flags=re.IGNORECASE
-    )
-
-    # 5. Automatski kast: <kolona> >= CURRENT_DATE|CURRENT_TIMESTAMP|<INTERVAL>
-    #    Pošto su u našoj šemi kolone sa datumima TEXT tipa (SQLite kompatibilno),
-    #    u PostgreSQL-u moramo da ih kastujemo u timestamp pri poređenju.
-    #
-    #    Pattern: <word> <op> CURRENT_DATE | CURRENT_TIMESTAMP | (CURRENT_DATE ± INTERVAL...)
-    #    Zamenjujemo sa: <word>::timestamp <op> <expression>
-
-    date_expr = r"(?:CURRENT_DATE|CURRENT_TIMESTAMP|\(CURRENT_DATE\s*[+-]\s*INTERVAL\s*'[^']+'\))"
-
-    # 5a. Iza operatora: >=, <=, >, <, =, !=, <>
-    sql = re.sub(
-        r"\b(\w+)\s*(>=|<=|>|<|=|!=|<>)\s*(" + date_expr + r")",
-        lambda m: f"{m.group(1)}::timestamp {m.group(2)} {m.group(3)}",
-        sql
-    )
-
-    # 5b. Ispred operatora: <date_expr> <= <kolona>
-    #     (npr. `date(deadline) <= date('now', ...)` već ima date(), ali za svaki slučaj)
-    sql = re.sub(
-        r"(" + date_expr + r")\s*(>=|<=|>|<|=|!=|<>)\s*(\w+)",
-        lambda m: f"{m.group(1)} {m.group(2)} {m.group(3)}::timestamp",
-        sql
-    )
-
+    """U PostgreSQL-only režimu, samo vrati SQL nepromenjen (očekuje %s)."""
     return sql
-
-def adapt_query_and_params(sql, params):
-    """
-    Prevodi SQL i PARAMETRE zajedno.
-    Specijalno: date('now', %s) + params ('-30 days',)
-    -> SQL: order_date >= (CURRENT_DATE - INTERVAL '30 days')
-    -> params: bez tog parametra
-    """
-    if not USE_POSTGRES:
-        return sql, params
-
-    import re
-
-    # Prvo standardni prevod
-    sql = adapt_query(sql)
-
-    # Specijalno: date('now', %s) — parametrizovano
-    # Pattern: date('now', %s)
-    params = list(params or [])
-
-    def extract_and_replace(match):
-        # Uzimamo sledeći parametar iz liste
-        if not params:
-            return match.group(0)  # nema parametra, ostavi kako je
-        val = params.pop(0)  # uzmi prvi parametar
-        # val je npr. '-30 days' ili '+14 days'
-        val = str(val).strip()
-        m = re.match(r"([+-]?)\s*(\d+)\s+(days?|months?|years?)", val, re.IGNORECASE)
-        if not m:
-            return match.group(0)  # ne možemo parsirati, ostavi
-        sign = m.group(1) or "+"
-        num = m.group(2)
-        unit = m.group(3)
-        if sign == "-":
-            return f"(CURRENT_DATE - INTERVAL '{num} {unit}')"
-        else:
-            return f"(CURRENT_DATE + INTERVAL '{num} {unit}')"
-
-    # Zameni date('now', %s) i pokupi odgovarajući parametar
-    sql = re.sub(
-        r"date\('now',\s*%s\)",
-        extract_and_replace,
-        sql
-    )
-
-    return sql, tuple(params)
 
 
 def adapt_schema(schema_sql):
-    """
-    Prilagodi SQL šemu za PostgreSQL:
-    - AUTOINCREMENT -> SERIAL
-    - datetime('now') -> CURRENT_TIMESTAMP
-    - PRAGMA ... -> obriši (SQLite-only)
-    - INSERT OR IGNORE -> INSERT ... ON CONFLICT DO NOTHING
-    - CREATE VIEW IF NOT EXISTS -> CREATE OR REPLACE VIEW
-    """
-    if not USE_POSTGRES:
-        return schema_sql
-
-    import re
-
-    # 1. AUTOINCREMENT ne postoji u PostgreSQL - koristi SERIAL
-    schema_sql = schema_sql.replace(
-        "INTEGER PRIMARY KEY AUTOINCREMENT",
-        "SERIAL PRIMARY KEY"
-    )
-
-    # 2. datetime('now') -> CURRENT_TIMESTAMP
-    schema_sql = schema_sql.replace("datetime('now')", "CURRENT_TIMESTAMP")
-
-    # 3. PRAGMA ... ; -> obriši celu liniju (SQLite-only)
-    schema_sql = re.sub(
-        r"^\s*PRAGMA\s+[^;]+;\s*$",
-        "",
-        schema_sql,
-        flags=re.MULTILINE | re.IGNORECASE
-    )
-
-    # 4. INSERT OR IGNORE INTO -> INSERT INTO ... ON CONFLICT DO NOTHING
-    def replace_insert_or_ignore(match):
-        stmt = match.group(0)
-        trailing = ""
-        if stmt.rstrip().endswith(";"):
-            stmt = stmt.rstrip()[:-1]
-            trailing = ";"
-        stmt = re.sub(r"\bINSERT\s+OR\s+IGNORE\s+INTO\b",
-                      "INSERT INTO", stmt, flags=re.IGNORECASE)
-        stmt = stmt.rstrip() + "\nON CONFLICT DO NOTHING" + trailing
-        return stmt
-
-    schema_sql = re.sub(
-        r"INSERT\s+OR\s+IGNORE\s+INTO\s+.*?;",
-        replace_insert_or_ignore,
-        schema_sql,
-        flags=re.IGNORECASE | re.DOTALL
-    )
-
-    # 5. CREATE VIEW IF NOT EXISTS -> CREATE OR REPLACE VIEW
-    schema_sql = schema_sql.replace(
-        "CREATE VIEW IF NOT EXISTS",
-        "CREATE OR REPLACE VIEW"
-    )
-
+    """U PostgreSQL-only režimu, šema je već PostgreSQL sintaksa."""
     return schema_sql
 
+# ---------------------------------------------------------------------------
+# Konfiguracija
+# ---------------------------------------------------------------------------
 
-# ==================== WRAPPER KONEKCIJE ====================
-
-class ConnectionWrapper:
+def _database_url() -> str:
     """
-    Omotava konekciju tako da `conn.execute(sql, params)` radi
-    isto za SQLite i PostgreSQL.
+    Redosled traženja:
+      1) DATABASE_URL  (Render ga automatski postavlja)
+      2) DB_URL        (alternativa)
+      3) sastavljanje iz PG* varijabli
     """
-    def __init__(self, conn):
-        self._conn = conn
-        self._pg = USE_POSTGRES
+    url = os.environ.get("DATABASE_URL") or os.environ.get("DB_URL")
+    if url:
+        # Render ponekad daje "postgres://", psycopg2 zahteva "postgresql://"
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        return url
 
-    def execute(self, sql, params=None):
-        if params is None:
-            params = ()
-        if self._pg:
-            sql, params = adapt_query_and_params(sql, params)
-            cur = self._conn.cursor()
-            cur.execute(sql, params)
-            return cur
-        else:
-            sql = adapt_query(sql)
-            return self._conn.execute(sql, params)
+    # Fallback za lokalni razvoj
+    host = os.environ.get("PGHOST", "localhost")
+    port = os.environ.get("PGPORT", "5432")
+    user = os.environ.get("PGUSER", "postgres")
+    pwd  = os.environ.get("PGPASSWORD", "postgres")
+    db   = os.environ.get("PGDATABASE", "microstock")
+    return f"postgresql://{user}:{pwd}@{host}:{port}/{db}"
 
-    def executescript(self, sql):
-        """Za šemu - u PostgreSQL-u se izvršava red po red."""
-        if self._pg:
-            cur = self._conn.cursor()
-            cur.execute(sql)
-            return cur
-        else:
-            return self._conn.executescript(sql)
+
+# Jednostavan pool — dovoljno za Flask na Render-u (1 worker).
+# Ako imate više worker-a, povećajte maxconn.
+_POOL = None
+
+
+def _get_pool() -> pg_pool.SimpleConnectionPool:
+    global _POOL
+    if _POOL is None:
+        dsn = _database_url()
+        log.info("Kreiram PostgreSQL connection pool")
+        _POOL = pg_pool.SimpleConnectionPool(
+            minconn=1,
+            maxconn=5,
+            dsn=dsn,
+            cursor_factory=psycopg2.extras.RealDictCursor,
+        )
+    return _POOL
+
+
+# ---------------------------------------------------------------------------
+# Konekcija
+# ---------------------------------------------------------------------------
+
+class _ConnWrapper:
+    """
+    Tanki omotač oko psycopg2 konekcije koji imitira sqlite3 API
+    (execute/fetchone/fetchall/close) da ostatak koda ne mora da se menja.
+    """
+
+    def __init__(self, raw_conn, pool):
+        self._raw = raw_conn
+        self._pool = pool
+        self._closed = False
+
+    # --- izvršavanje ---
+
+    def execute(self, sql: str, params=None):
+        # Automatska konverzija ? -> %s (da ostali fajlovi ne moraju da se menjaju)
+        sql = sql.replace("?", "%s")
+        
+        cur = self._raw.cursor()
+        try:
+            cur.execute(sql, params or ())
+        except Exception:
+            self._raw.rollback()
+            cur.close()
+            raise
+        return cur
+
+    def executemany(self, sql: str, seq_of_params):
+        sql = sql.replace("?", "%s")
+        cur = self._raw.cursor()
+        try:
+            cur.executemany(sql, seq_of_params)
+        except Exception:
+            self._raw.rollback()
+            cur.close()
+            raise
+        return cur
+
+    def executescript(self, script: str):
+        """Izvršava više SQL naredbi odjednom (kao sqlite3.executescript)."""
+        cur = self._raw.cursor()
+        try:
+            cur.execute(script)
+        except Exception:
+            self._raw.rollback()
+            cur.close()
+            raise
+        return cur
 
     def commit(self):
-        self._conn.commit()
+        self._raw.commit()
+
+    def rollback(self):
+        self._raw.rollback()
 
     def close(self):
-        self._conn.close()
+        """Vraća konekciju u pool umesto pravog zatvaranja."""
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self._raw.rollback()  # očisti eventualnu otvorenu transakciju
+        except Exception:
+            pass
+        try:
+            self._pool.putconn(self._raw)
+        except Exception:
+            try:
+                self._raw.close()
+            except Exception:
+                pass
 
-    def cursor(self):
-        return self._conn.cursor()
+    # --- convenience ---
+
+    def cursor(self, *args, **kwargs):
+        return self._raw.cursor(*args, **kwargs)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            try:
+                self.commit()
+            except Exception:
+                self.rollback()
+                raise
+        else:
+            self.rollback()
+        self.close()
 
 
 def connect():
-    """Vraća omotanu konekciju."""
-    return ConnectionWrapper(get_conn())
+    """
+    Vraća _ConnWrapper oko psycopg2 konekcije iz pool-a.
+    Pozivalac je odgovoran da pozove .close() (ili koristi `with connect() as c:`).
+    """
+    raw = _get_pool().getconn()
+    return _ConnWrapper(raw, _get_pool())
+
+
+# ---------------------------------------------------------------------------
+# Helperi (opciono — mogu da zamene direktne connect() pozive)
+# ---------------------------------------------------------------------------
+
+def query(sql: str, params=None):
+    """Vraća listu dict-ova."""
+    conn = connect()
+    try:
+        cur = conn.execute(sql, params)
+        return cur.fetchall()
+    finally:
+        conn.close()
+
+
+def query_one(sql: str, params=None):
+    """Vraća jedan dict ili None."""
+    conn = connect()
+    try:
+        cur = conn.execute(sql, params)
+        return cur.fetchone()
+    finally:
+        conn.close()
+
+
+def execute(sql: str, params=None):
+    """Izvršava INSERT/UPDATE/DELETE i commit-uje. Vraća rowcount."""
+    conn = connect()
+    try:
+        cur = conn.execute(sql, params)
+        conn.commit()
+        return cur.rowcount
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def execute_returning(sql: str, params=None):
+    """Za INSERT ... RETURNING id — vraća fetchone() rezultat."""
+    conn = connect()
+    try:
+        cur = conn.execute(sql, params)
+        row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+@contextmanager
+def transaction():
+    """with transaction() as conn: ... — automatski commit/rollback."""
+    conn = connect()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Dijagnostika
+# ---------------------------------------------------------------------------
+
+def healthcheck():
+    """Vraća (True, info) ili (False, greška). Korisno za /health rutu."""
+    try:
+        row = query_one("SELECT version() AS v, current_database() AS db")
+        return True, {"version": row["v"], "database": row["db"]}
+    except Exception as e:
+        return False, str(e)
+
+# Inicijalizuj module-level konstante
+_refresh_module_globals()

@@ -10,7 +10,7 @@ def list_products(search=None, only_low=False, include_inactive=False):
     if not include_inactive:
         sql += " AND active = 1"
     if search:
-        sql += " AND (name LIKE ? OR sku LIKE ?)"
+        sql += " AND (name LIKE %s OR sku LIKE %s)"
         params += [f"%{search}%", f"%{search}%"]
     if only_low:
         sql += " AND stock <= low_stock_at"
@@ -23,7 +23,7 @@ def list_products(search=None, only_low=False, include_inactive=False):
 def add_product(sku, name, price, cost, stock, low_stock_at=3):
     conn = connect()
     conn.execute(
-        "INSERT INTO products (sku,name,price,cost,stock,low_stock_at) VALUES (?,?,?,?,?,?)",
+        "INSERT INTO products (sku,name,price,cost,stock,low_stock_at) VALUES (%s,%s,%s,%s,%s,%s)",
         (sku, name, price, cost, stock, low_stock_at)
     )
     conn.commit(); conn.close()
@@ -32,20 +32,20 @@ def update_product(pid, sku, name, price, cost, stock, low_stock_at):
     conn = connect()
     conn.execute("""
         UPDATE products
-           SET sku=?, name=?, price=?, cost=?, stock=?, low_stock_at=?
-         WHERE id=?
+           SET sku=%s, name=%s, price=%s, cost=%s, stock=%s, low_stock_at=%s
+         WHERE id=%s
     """, (sku, name, price, cost, stock, low_stock_at, pid))
     conn.commit(); conn.close()
 
 def archive_product(pid):
     """Soft delete - proizvod ostaje u bazi zbog istorije narudžbina."""
     conn = connect()
-    conn.execute("UPDATE products SET active = 0 WHERE id = ?", (pid,))
+    conn.execute("UPDATE products SET active = 0 WHERE id = %s", (pid,))
     conn.commit(); conn.close()
 
 def get_product(pid):
     conn = connect()
-    row = conn.execute("SELECT * FROM products WHERE id=?", (pid,)).fetchone()
+    row = conn.execute("SELECT * FROM products WHERE id=%s", (pid,)).fetchone()
     conn.close()
     return row
 
@@ -73,10 +73,10 @@ def create_order(customer_name, channel_id, items, note="",
     conn = connect()
     cur = conn.cursor()
 
-    # Duplikat?
+    # Duplikat%s
     if external_id:
         dup = cur.execute(
-            "SELECT id FROM orders WHERE external_id=? AND source=?",
+            "SELECT id FROM orders WHERE external_id=%s AND source=%s",
             (external_id, source)
         ).fetchone()
         if dup:
@@ -86,7 +86,7 @@ def create_order(customer_name, channel_id, items, note="",
     cur.execute("""
         INSERT INTO orders (customer_name, channel_id, note, external_id, source,
                             shipping_cost, shipping_method)
-        VALUES (?,?,?,?,?,?,?)
+        VALUES (%s,%s,%s,%s,%s,%s,%s)
     """, (customer_name, channel_id, note, external_id, source,
           float(shipping_cost or 0), (shipping_method or "").strip()))
 
@@ -105,17 +105,17 @@ def create_order(customer_name, channel_id, items, note="",
         ).fetchone()["id"]
 
     for it in items:
-        prod = cur.execute("SELECT price FROM products WHERE id=?", (it["product_id"],)).fetchone()
+        prod = cur.execute("SELECT price FROM products WHERE id=%s", (it["product_id"],)).fetchone()
         if prod is None:
             raise ValueError(f"Proizvod {it['product_id']} ne postoji")
         cur.execute("""
             INSERT INTO order_items (order_id, product_id, qty, unit_price)
-            VALUES (?,?,?,?)
+            VALUES (%s,%s,%s,%s)
         """, (order_id, it["product_id"], it["qty"], prod["price"]))
 
         # Umesto triggera - ručno smanji zalihu
         cur.execute("""
-            UPDATE products SET stock = stock - ? WHERE id = ?
+            UPDATE products SET stock = stock - %s WHERE id = %s
         """, (it["qty"], it["product_id"]))
 
     conn.commit(); conn.close()
@@ -126,9 +126,9 @@ def update_order(order_id, customer_name, channel_id, note, status,
     conn = connect()
     conn.execute("""
         UPDATE orders
-           SET customer_name=?, channel_id=?, note=?, status=?,
-               shipping_cost=?, shipping_method=?
-         WHERE id=?
+           SET customer_name=%s, channel_id=%s, note=%s, status=%s,
+               shipping_cost=%s, shipping_method=%s
+         WHERE id=%s
     """, (customer_name, channel_id, note, status,
           float(shipping_cost or 0), (shipping_method or "").strip(),
           order_id))
@@ -141,17 +141,17 @@ def delete_order(order_id):
 
     # Vrati zalihe za sve stavke pre brisanja
     items = cur.execute(
-        "SELECT product_id, qty FROM order_items WHERE order_id=?",
+        "SELECT product_id, qty FROM order_items WHERE order_id=%s",
         (order_id,)
     ).fetchall()
     for it in items:
         cur.execute(
-            "UPDATE products SET stock = stock + ? WHERE id = ?",
+            "UPDATE products SET stock = stock + %s WHERE id = %s",
             (it["qty"], it["product_id"])
         )
 
     # Obriši narudžbinu (ON DELETE CASCADE briše i stavke)
-    cur.execute("DELETE FROM orders WHERE id=?", (order_id,))
+    cur.execute("DELETE FROM orders WHERE id=%s", (order_id,))
     conn.commit(); conn.close()
 
 def list_orders(status=None, channel_id=None, search=None):
@@ -166,11 +166,11 @@ def list_orders(status=None, channel_id=None, search=None):
     """
     params = []
     if status:
-        sql += " AND o.status = ?"; params.append(status)
+        sql += " AND o.status = %s"; params.append(status)
     if channel_id:
-        sql += " AND o.channel_id = ?"; params.append(channel_id)
+        sql += " AND o.channel_id = %s"; params.append(channel_id)
     if search:
-        sql += " AND (o.customer_name LIKE ? OR o.external_id LIKE ?)"
+        sql += " AND (o.customer_name LIKE %s OR o.external_id LIKE %s)"
         params += [f"%{search}%", f"%{search}%"]
     sql += " ORDER BY o.id DESC"
     conn = connect()
@@ -183,19 +183,19 @@ def get_order(order_id):
     order = conn.execute("""
         SELECT o.*, c.name AS channel, c.fee_percent
         FROM orders o JOIN channels c ON c.id=o.channel_id
-        WHERE o.id=?
+        WHERE o.id=%s
     """, (order_id,)).fetchone()
     items = conn.execute("""
         SELECT oi.*, p.name AS product_name, p.sku
         FROM order_items oi JOIN products p ON p.id=oi.product_id
-        WHERE oi.order_id=?
+        WHERE oi.order_id=%s
     """, (order_id,)).fetchall()
     conn.close()
     return (dict(order) if order else None, items)
 
 def set_order_status(order_id, status):
     conn = connect()
-    conn.execute("UPDATE orders SET status=? WHERE id=?", (status, order_id))
+    conn.execute("UPDATE orders SET status=%s WHERE id=%s", (status, order_id))
     conn.commit(); conn.close()
 
 def get_order_by_external_id(external_id, source=None):
@@ -210,12 +210,12 @@ def get_order_by_external_id(external_id, source=None):
     try:
         if source:
             row = conn.execute(
-                "SELECT * FROM orders WHERE external_id = ? AND source = ?",
+                "SELECT * FROM orders WHERE external_id = %s AND source = %s",
                 (str(external_id), str(source))
             ).fetchone()
         else:
             row = conn.execute(
-                "SELECT * FROM orders WHERE external_id = ?",
+                "SELECT * FROM orders WHERE external_id = %s",
                 (str(external_id),)
             ).fetchone()
         return row
@@ -228,7 +228,7 @@ def log_sync(source, external_id, order_id, payload, status, message=""):
     conn = connect()
     conn.execute("""
         INSERT INTO sync_log (source, external_id, order_id, payload, status, message)
-        VALUES (?,?,?,?,?,?)
+        VALUES (%s,%s,%s,%s,%s,%s)
     """, (source, external_id, order_id, json.dumps(payload, ensure_ascii=False),
           status, message))
     conn.commit(); conn.close()
@@ -507,7 +507,7 @@ def import_rows(rows, mapping, channel_id, source_name,
         INSERT INTO import_logs
         (user_id, source, filename, rows_total, rows_imported,
          rows_skipped, rows_failed, errors)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     """, (user_id, source_name, filename, len(rows),
           results["imported"], results["skipped"], results["failed"],
           json.dumps(results["errors"][:50], ensure_ascii=False)))
@@ -522,7 +522,7 @@ def _import_group(conn, ext_id, group, mapping, channel_id, source_name,
     """Uvozi jednu narudžbinu (može imati više stavki)."""
     from models import create_order, get_order_by_external_id
 
-    # Duplikat?
+    # Duplikat%s
     if ext_id:
         existing = get_order_by_external_id(ext_id, source_name)
         if existing:
@@ -584,11 +584,11 @@ def _build_item(conn, row, mapping, auto_create_products, results):
     # Nađi proizvod po SKU, pa po imenu
     product_id = None
     if sku:
-        row_db = conn.execute("SELECT id FROM products WHERE sku=?", (str(sku).strip(),)).fetchone()
+        row_db = conn.execute("SELECT id FROM products WHERE sku=%s", (str(sku).strip(),)).fetchone()
         if row_db:
             product_id = row_db["id"]
     if not product_id and name:
-        row_db = conn.execute("SELECT id FROM products WHERE name=?", (str(name).strip(),)).fetchone()
+        row_db = conn.execute("SELECT id FROM products WHERE name=%s", (str(name).strip(),)).fetchone()
         if row_db:
             product_id = row_db["id"]
 
@@ -598,7 +598,7 @@ def _build_item(conn, row, mapping, auto_create_products, results):
         new_name = str(name).strip() if name else f"Proizvod {new_sku}"
         cur = conn.execute("""
             INSERT INTO products (sku, name, price, cost, stock, low_stock_at)
-            VALUES (?, ?, ?, 0, 0, 3)
+            VALUES (%s, %s, %s, 0, 0, 3)
         """, (new_sku, new_name, price or 0))
         conn.commit()
         product_id = cur.lastrowid

@@ -44,7 +44,7 @@ def _get_recipient_lang(email):
     try:
         conn = connect()
         row = conn.execute(
-            "SELECT language FROM users WHERE email = ?", (email,)
+            "SELECT language FROM users WHERE email = %s", (email,)
         ).fetchone()
         conn.close()
         if row:
@@ -63,7 +63,7 @@ def _get_recipient_currency(email):
     try:
         conn = connect()
         row = conn.execute(
-            "SELECT currency FROM users WHERE email = ?", (email,)
+            "SELECT currency FROM users WHERE email = %s", (email,)
         ).fetchone()
         conn.close()
         if row:

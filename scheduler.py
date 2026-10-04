@@ -7,7 +7,6 @@ Koristi APScheduler — radi u istom procesu kao Flask.
 """
 import os
 import atexit
-from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 
 _scheduler = None
@@ -32,8 +31,7 @@ def init_scheduler(app):
         replace_existing=True,
     )
 
-    # 08:05 — NBS kurs (NBS objavljuje oko 08:00, pa čekamo 5 min)
-        # 08:05 — NBS kurs (NBS objavljuje oko 08:00, pa čekamo 5 min)
+    # 08:05 — NBS kurs (pon-pet)
     _scheduler.add_job(
         func=lambda: _run_nbs_rates(app),
         trigger="cron",
@@ -83,11 +81,10 @@ def _digest_low_stock():
     from db_adapter import connect
     from mailer import send_low_stock_digest
     conn = connect()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT id, sku, name, stock, low_stock_threshold
+    cur = conn.execute("""
+        SELECT id, sku, name, stock, low_stock_at
         FROM products
-        WHERE archived = 0 AND stock <= low_stock_threshold
+        WHERE active = 1 AND stock <= low_stock_at
         ORDER BY stock ASC
     """)
     rows = [dict(r) for r in cur.fetchall()]
@@ -101,14 +98,13 @@ def _digest_pending_orders():
     from mailer import send_pending_orders_digest
     days = int(os.getenv("PENDING_ORDER_DAYS", "3"))
     conn = connect()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT id, customer, status, created_at
+    cur = conn.execute("""
+        SELECT id, customer_name, status, created_at
         FROM orders
         WHERE status IN ('new', 'paid')
-          AND created_at <= datetime('now', ?)
+          AND created_at <= CURRENT_TIMESTAMP - INTERVAL '%s days'
         ORDER BY created_at ASC
-    """, (f"-{days} days",))
+    """, (days,))
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
     if rows:
@@ -119,13 +115,12 @@ def _digest_deadlines():
     from db_adapter import connect
     from mailer import send_deadlines_digest
     conn = connect()
-    cur = conn.cursor()
-    cur.execute("""
+    cur = conn.execute("""
         SELECT id, name, client, deadline
         FROM projects
         WHERE status = 'active'
           AND deadline IS NOT NULL
-          AND deadline BETWEEN date('now') AND date('now', '+14 days')
+          AND deadline BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '14 days'
         ORDER BY deadline ASC
     """)
     rows = [dict(r) for r in cur.fetchall()]
@@ -148,6 +143,7 @@ def _run_nbs_rates(app):
             )
         except Exception as e:
             app.logger.error(f"NBS kurs greška: {e}")
+
 
 # ==================== PERIODIČNI IZVEŠTAJI ====================
 

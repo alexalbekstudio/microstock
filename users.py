@@ -31,7 +31,7 @@ def get_user(user_id):
     cur = conn.cursor()
     cur.execute("""
         SELECT id, email, name, role, active, last_login
-        FROM users WHERE id = ?
+        FROM users WHERE id = %s
     """, (user_id,))
     row = cur.fetchone()
     cur.close()
@@ -50,7 +50,7 @@ def create_user(email, name, password, role="viewer"):
     try:
         cur.execute("""
             INSERT INTO users (email, name, password_hash, role, active)
-            VALUES (?, ?, ?, ?, 1)
+            VALUES (%s, %s, %s, %s, 1)
         """, (email.lower().strip(), name.strip(),
               generate_password_hash(password), role))
         conn.commit()
@@ -69,8 +69,8 @@ def update_user(user_id, email, name, role, active):
     try:
         cur.execute("""
             UPDATE users
-            SET email = ?, name = ?, role = ?, active = ?
-            WHERE id = ?
+            SET email = %s, name = %s, role = %s, active = %s
+            WHERE id = %s
         """, (email.lower().strip(), name.strip(), role, 1 if active else 0, user_id))
         conn.commit()
     finally:
@@ -83,7 +83,7 @@ def change_password(user_id, new_password):
     cur = conn.cursor()
     try:
         cur.execute("""
-            UPDATE users SET password_hash = ? WHERE id = ?
+            UPDATE users SET password_hash = %s WHERE id = %s
         """, (generate_password_hash(new_password), user_id))
         conn.commit()
     finally:
@@ -96,13 +96,13 @@ def toggle_active(user_id):
     conn = connect()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT active FROM users WHERE id = ?", (user_id,))
+        cur.execute("SELECT active FROM users WHERE id = %s", (user_id,))
         row = cur.fetchone()
         if not row:
             return None
         current = row[0] if not isinstance(row, dict) else row["active"]
         new_val = 0 if current else 1
-        cur.execute("UPDATE users SET active = ? WHERE id = ?", (new_val, user_id))
+        cur.execute("UPDATE users SET active = %s WHERE id = %s", (new_val, user_id))
         conn.commit()
         return new_val
     finally:
@@ -115,7 +115,7 @@ def delete_user(user_id):
     conn = connect()
     cur = conn.cursor()
     try:
-        cur.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
         conn.commit()
     finally:
         cur.close()

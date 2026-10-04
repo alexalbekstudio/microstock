@@ -1,40 +1,43 @@
--- schema.sql (PostgreSQL verzija - 2026-10-04)
+-- schema.sql (kompletna nova verzija - 2026-10-03)
 
--- Tabele
+PRAGMA foreign_keys = ON;
+
 CREATE TABLE IF NOT EXISTS channels (
-    id          SERIAL PRIMARY KEY,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT NOT NULL UNIQUE,
-    fee_percent NUMERIC(6,2) DEFAULT 0.0
+    fee_percent REAL DEFAULT 0.0
 );
 
 CREATE TABLE IF NOT EXISTS products (
-    id           SERIAL PRIMARY KEY,
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
     sku          TEXT UNIQUE NOT NULL,
     name         TEXT NOT NULL,
-    price        NUMERIC(12,2) NOT NULL DEFAULT 0,
-    cost         NUMERIC(12,2) NOT NULL DEFAULT 0,
+    price        REAL NOT NULL DEFAULT 0,
+    cost         REAL NOT NULL DEFAULT 0,
     stock        INTEGER NOT NULL DEFAULT 0,
     low_stock_at INTEGER NOT NULL DEFAULT 3,
     active       INTEGER NOT NULL DEFAULT 1,
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at   TEXT DEFAULT (datetime('now')),
+    updated_at   TEXT DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
 CREATE INDEX IF NOT EXISTS idx_products_sku  ON products(sku);
 
 CREATE TABLE IF NOT EXISTS orders (
-    id              SERIAL PRIMARY KEY,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
     external_id     TEXT,
     source          TEXT DEFAULT 'manual',
     customer_name   TEXT NOT NULL,
-    channel_id      INTEGER NOT NULL REFERENCES channels(id),
+    channel_id      INTEGER NOT NULL,
     status          TEXT NOT NULL DEFAULT 'new',
     note            TEXT,
-    shipping_cost   NUMERIC(12,2) DEFAULT 0,
+    -- NOVO: dostava
+    shipping_cost   REAL DEFAULT 0,
     shipping_method TEXT DEFAULT '',
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (channel_id) REFERENCES channels(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_status  ON orders(status);
@@ -42,34 +45,42 @@ CREATE INDEX IF NOT EXISTS idx_orders_channel ON orders(channel_id);
 CREATE INDEX IF NOT EXISTS idx_orders_ext     ON orders(external_id);
 
 CREATE TABLE IF NOT EXISTS order_items (
-    id         SERIAL PRIMARY KEY,
-    order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    product_id INTEGER NOT NULL REFERENCES products(id),
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id   INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
     qty        INTEGER NOT NULL CHECK (qty > 0),
-    unit_price NUMERIC(12,2) NOT NULL
+    unit_price REAL NOT NULL,
+    FOREIGN KEY (order_id)   REFERENCES orders(id)   ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
 CREATE TABLE IF NOT EXISTS sync_log (
-    id          SERIAL PRIMARY KEY,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     source      TEXT NOT NULL,
     external_id TEXT,
     order_id    INTEGER,
     payload     TEXT,
     status      TEXT,
     message     TEXT,
-    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at  TEXT DEFAULT (datetime('now'))
 );
 
-INSERT INTO channels (name, fee_percent) VALUES
+INSERT OR IGNORE INTO channels (name, fee_percent) VALUES
     ('Instagram', 0.0),
     ('WhatsApp',  0.0),
     ('Etsy',      6.5),
     ('Faire',     15.0),
-    ('Lično',     0.0)
-ON CONFLICT (name) DO NOTHING;
+    ('Lično',     0.0);
 
--- VIEW za profit (identična logika, samo PostgreSQL sintaksa)
-CREATE OR REPLACE VIEW v_order_profit AS
+-- ============================================
+-- ALAT #2: Analitika - VIEW za profit (SA DOSTAVOM)
+-- ============================================
+-- VAŽNO: shipping_cost je trošak CELE narudžbine, ne po itemu.
+-- Zato ga delimo srazmerno vrednosti itema u narudžbini.
+-- Ako narudžbina ima 2 itema: 100 din i 300 din (ukupno 400),
+-- shipping 40 din se deli: 10 din na prvi, 30 din na drugi.
+
+CREATE VIEW IF NOT EXISTS v_order_profit AS
 SELECT
     o.id                AS order_id,
     o.created_at        AS order_date,
@@ -83,14 +94,16 @@ SELECT
     p.cost              AS unit_cost,
     oi.qty              AS qty,
     oi.unit_price       AS unit_price,
-    (oi.qty * oi.unit_price)                                 AS revenue,
-    (oi.qty * oi.unit_price * c.fee_percent / 100.0)         AS channel_fee,
-    (oi.qty * p.cost)                                        AS product_cost,
+    (oi.qty * oi.unit_price)                                    AS revenue,
+    (oi.qty * oi.unit_price * c.fee_percent / 100.0)            AS channel_fee,
+    (oi.qty * p.cost)                                           AS product_cost,
+    -- Deo shipping_cost-a koji pripada ovom itemu:
     COALESCE(o.shipping_cost, 0) *
       (oi.qty * oi.unit_price) /
       NULLIF((SELECT SUM(oi2.qty * oi2.unit_price)
               FROM order_items oi2
-              WHERE oi2.order_id = o.id), 0)                 AS shipping_cost,
+              WHERE oi2.order_id = o.id), 0)                    AS shipping_cost,
+    -- Profit = prihod - provizija - trošak proizvoda - dostava
     (oi.qty * oi.unit_price)
       - (oi.qty * oi.unit_price * c.fee_percent / 100.0)
       - (oi.qty * p.cost)
@@ -98,67 +111,77 @@ SELECT
         (oi.qty * oi.unit_price) /
         NULLIF((SELECT SUM(oi2.qty * oi2.unit_price)
                 FROM order_items oi2
-                WHERE oi2.order_id = o.id), 0)               AS profit
+                WHERE oi2.order_id = o.id), 0)                  AS profit
 FROM order_items oi
 JOIN orders   o ON o.id = oi.order_id
 JOIN products p ON p.id = oi.product_id
 JOIN channels c ON c.id = o.channel_id
 WHERE o.status != 'cancelled';
 
--- Ostale tabele (team_members, projects, time_entries, project_expenses, users, import_logs, exchange_rates) — ista logika:
+-- ============================================
+-- ALAT #3: Praćenje troškova projekata (USKLAĐENO SA BAZOM)
+-- ============================================
+
 CREATE TABLE IF NOT EXISTS team_members (
-    id            SERIAL PRIMARY KEY,
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
     name          TEXT NOT NULL,
     role          TEXT,
-    hourly_rate   NUMERIC(12,2) NOT NULL DEFAULT 0,
+    hourly_rate   REAL NOT NULL DEFAULT 0,
     active        INTEGER NOT NULL DEFAULT 1,
-    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at    TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS projects (
-    id                  SERIAL PRIMARY KEY,
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     code                TEXT,
     name                TEXT NOT NULL,
     client              TEXT,
-    contract_value      NUMERIC(12,2) DEFAULT 0,
-    start_date          DATE,
-    deadline            DATE,
+    contract_value      REAL DEFAULT 0,
+    start_date          TEXT,
+    deadline            TEXT,
     status              TEXT DEFAULT 'active',
     notes               TEXT,
-    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at          TEXT DEFAULT (datetime('now')),
+    updated_at          TEXT DEFAULT (datetime('now')),
     last_alert_level    TEXT DEFAULT NULL,
-    last_alert_sent_at  TIMESTAMP DEFAULT NULL
+    last_alert_sent_at  TEXT DEFAULT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
 
 CREATE TABLE IF NOT EXISTS time_entries (
-    id           SERIAL PRIMARY KEY,
-    project_id   INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    member_id    INTEGER NOT NULL REFERENCES team_members(id),
-    entry_date   DATE NOT NULL,
-    hours        NUMERIC(8,2) NOT NULL CHECK (hours > 0),
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id   INTEGER NOT NULL,
+    member_id    INTEGER NOT NULL,
+    entry_date   TEXT NOT NULL,
+    hours        REAL NOT NULL CHECK (hours > 0),
     description  TEXT,
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at   TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id)     ON DELETE CASCADE,
+    FOREIGN KEY (member_id)  REFERENCES team_members(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_time_project ON time_entries(project_id);
 
 CREATE TABLE IF NOT EXISTS project_expenses (
-    id           SERIAL PRIMARY KEY,
-    project_id   INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    expense_date DATE NOT NULL,
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id   INTEGER NOT NULL,
+    expense_date TEXT NOT NULL,
     category     TEXT,
     description  TEXT,
-    amount       NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    amount       REAL NOT NULL CHECK (amount >= 0),
+    created_at   TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_expense_project ON project_expenses(project_id);
 
+-- ============================================
+-- AUTENTIFIKACIJA
+-- ============================================
+
 CREATE TABLE IF NOT EXISTS users (
-    id            SERIAL PRIMARY KEY,
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
     email         TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     name          TEXT,
@@ -166,13 +189,16 @@ CREATE TABLE IF NOT EXISTS users (
     active        INTEGER NOT NULL DEFAULT 1,
     language      TEXT DEFAULT 'sr',
     currency      TEXT DEFAULT 'RSD',
-    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login    TIMESTAMP
+    created_at    TEXT DEFAULT (datetime('now')),
+    last_login    TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
-CREATE OR REPLACE VIEW v_project_summary AS
+-- ============================================
+-- VIEW: Sažetak projekta
+-- ============================================
+CREATE VIEW IF NOT EXISTS v_project_summary AS
 SELECT
     p.id                                    AS project_id,
     p.code                                  AS code,
@@ -193,8 +219,11 @@ SELECT
     COALESCE((SELECT SUM(amount) FROM project_expenses WHERE project_id = p.id), 0) AS expense_cost
 FROM projects p;
 
+-- ============================================
+-- IMPORT LOGS (ispravljeno: INTEGER umesto SERIAL)
+-- ============================================
 CREATE TABLE IF NOT EXISTS import_logs (
-    id            SERIAL PRIMARY KEY,
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id       INTEGER,
     source        TEXT,
     filename      TEXT,
@@ -206,12 +235,15 @@ CREATE TABLE IF NOT EXISTS import_logs (
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ============================================
+-- KURSEVI
+-- ============================================
 CREATE TABLE IF NOT EXISTS exchange_rates (
-    id              SERIAL PRIMARY KEY,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
     source_currency TEXT NOT NULL,
     target_currency TEXT NOT NULL,
-    rate            NUMERIC(12,6) NOT NULL,
-    rate_date       DATE NOT NULL,
-    fetched_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    rate            REAL NOT NULL,
+    rate_date       TEXT NOT NULL,
+    fetched_at      TEXT DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(source_currency, target_currency, rate_date)
 );

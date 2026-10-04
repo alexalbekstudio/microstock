@@ -1,16 +1,8 @@
-# analytics.py
-"""
-Analitika za Alat #2 - višekanalna prodaja i profit.
-Svi upiti se oslanjaju na VIEW v_order_profit.
-Verzija: sa shipping_cost (2026-10-03)
-"""
+# analytics.py (PostgreSQL verzija - 2026-10-04)
 from db_adapter import connect
 
 
-# ==================== PREGLED (KPI) ====================
-
 def overview(days=None):
-    """Ukupni KPI: prihod, trošak, provizije, dostava, profit, marža."""
     sql = """
         SELECT
             COALESCE(SUM(revenue), 0)       AS revenue,
@@ -24,8 +16,8 @@ def overview(days=None):
     """
     params = []
     if days:
-        sql += " WHERE order_date >= date('now', ?)"
-        params.append(f"-{days} days")
+        sql += " WHERE order_date >= now() - (%s || ' days')::interval"
+        params.append(str(days))
 
     conn = connect()
     row = conn.execute(sql, params).fetchone()
@@ -33,60 +25,50 @@ def overview(days=None):
 
     revenue = row["revenue"] or 0
     margin = (row["profit"] / revenue * 100) if revenue > 0 else 0
-
     return {
-        "revenue":  round(revenue, 2),
-        "fees":     round(row["fees"], 2),
-        "cost":     round(row["cost"], 2),
-        "shipping": round(row["shipping"], 2),
-        "profit":   round(row["profit"], 2),
+        "revenue":  round(float(revenue), 2),
+        "fees":     round(float(row["fees"]), 2),
+        "cost":     round(float(row["cost"]), 2),
+        "shipping": round(float(row["shipping"]), 2),
+        "profit":   round(float(row["profit"]), 2),
         "margin":   round(margin, 1),
         "orders":   row["orders"],
         "units":    row["units"],
     }
 
 
-# ==================== PO KANALU ====================
-
 def by_channel(days=None):
-    """Prihod, provizija, trošak, dostava i profit po kanalu prodaje."""
     sql = """
         SELECT
-            channel_id,
-            channel_name,
-            fee_percent,
-            SUM(revenue)       AS revenue,
-            SUM(channel_fee)   AS fees,
-            SUM(product_cost)  AS cost,
-            SUM(shipping_cost) AS shipping,
-            SUM(profit)        AS profit,
-            SUM(qty)           AS units,
+            channel_id, channel_name, fee_percent,
+            SUM(revenue) AS revenue, SUM(channel_fee) AS fees,
+            SUM(product_cost) AS cost, SUM(shipping_cost) AS shipping,
+            SUM(profit) AS profit, SUM(qty) AS units,
             COUNT(DISTINCT order_id) AS orders
         FROM v_order_profit
     """
     params = []
     if days:
-        sql += " WHERE order_date >= date('now', ?)"
-        params.append(f"-{days} days")
-    sql += " GROUP BY channel_id ORDER BY profit DESC"
+        sql += " WHERE order_date >= now() - (%s || ' days')::interval"
+        params.append(str(days))
+    sql += " GROUP BY channel_id, channel_name, fee_percent ORDER BY profit DESC"
 
     conn = connect()
     rows = conn.execute(sql, params).fetchall()
     conn.close()
-
     result = []
     for r in rows:
-        rev = r["revenue"] or 0
-        margin = (r["profit"] / rev * 100) if rev > 0 else 0
+        rev = float(r["revenue"] or 0)
+        margin = (float(r["profit"] or 0) / rev * 100) if rev > 0 else 0
         result.append({
             "channel_id":   r["channel_id"],
             "channel_name": r["channel_name"],
-            "fee_percent":  r["fee_percent"],
+            "fee_percent":  float(r["fee_percent"] or 0),
             "revenue":      round(rev, 2),
-            "fees":         round(r["fees"] or 0, 2),
-            "cost":         round(r["cost"] or 0, 2),
-            "shipping":     round(r["shipping"] or 0, 2),
-            "profit":       round(r["profit"] or 0, 2),
+            "fees":         round(float(r["fees"] or 0), 2),
+            "cost":         round(float(r["cost"] or 0), 2),
+            "shipping":     round(float(r["shipping"] or 0), 2),
+            "profit":       round(float(r["profit"] or 0), 2),
             "margin":       round(margin, 1),
             "units":        r["units"],
             "orders":       r["orders"],
@@ -94,93 +76,74 @@ def by_channel(days=None):
     return result
 
 
-# ==================== PO PROIZVODU ====================
-
 def by_product(days=None, limit=20):
-    """Profit po proizvodu - koji se najviše isplati, a koji gubi novac."""
     sql = """
-        SELECT
-            product_id,
-            sku,
-            product_name,
-            SUM(qty)           AS units,
-            SUM(revenue)       AS revenue,
-            SUM(channel_fee)   AS fees,
-            SUM(product_cost)  AS cost,
-            SUM(shipping_cost) AS shipping,
-            SUM(profit)        AS profit
+        SELECT product_id, sku, product_name,
+            SUM(qty) AS units, SUM(revenue) AS revenue,
+            SUM(channel_fee) AS fees, SUM(product_cost) AS cost,
+            SUM(shipping_cost) AS shipping, SUM(profit) AS profit
         FROM v_order_profit
     """
     params = []
     if days:
-        sql += " WHERE order_date >= date('now', ?)"
-        params.append(f"-{days} days")
-    sql += " GROUP BY product_id ORDER BY profit DESC LIMIT ?"
+        sql += " WHERE order_date >= now() - (%s || ' days')::interval"
+        params.append(str(days))
+    sql += " GROUP BY product_id, sku, product_name ORDER BY profit DESC LIMIT %s"
     params.append(limit)
 
     conn = connect()
     rows = conn.execute(sql, params).fetchall()
     conn.close()
-
     result = []
     for r in rows:
-        rev = r["revenue"] or 0
-        margin = (r["profit"] / rev * 100) if rev > 0 else 0
+        rev = float(r["revenue"] or 0)
+        margin = (float(r["profit"] or 0) / rev * 100) if rev > 0 else 0
         result.append({
             "product_id":   r["product_id"],
             "sku":          r["sku"],
             "product_name": r["product_name"],
             "units":        r["units"],
             "revenue":      round(rev, 2),
-            "fees":         round(r["fees"] or 0, 2),
-            "cost":         round(r["cost"] or 0, 2),
-            "shipping":     round(r["shipping"] or 0, 2),
-            "profit":       round(r["profit"] or 0, 2),
+            "fees":         round(float(r["fees"] or 0), 2),
+            "cost":         round(float(r["cost"] or 0), 2),
+            "shipping":     round(float(r["shipping"] or 0), 2),
+            "profit":       round(float(r["profit"] or 0), 2),
             "margin":       round(margin, 1),
         })
     return result
 
 
-# ==================== TREND KROZ VREME ====================
-
 def trend(days=30):
-    """Dnevni prihod i profit za poslednjih N dana."""
     conn = connect()
     rows = conn.execute("""
         SELECT
-            date(order_date) AS day,
-            SUM(revenue)     AS revenue,
-            SUM(profit)      AS profit
+            order_date::date AS day,
+            SUM(revenue) AS revenue,
+            SUM(profit)  AS profit
         FROM v_order_profit
-        WHERE order_date >= date('now', ?)
-        GROUP BY day
+        WHERE order_date >= now() - (%s || ' days')::interval
+        GROUP BY order_date::date
         ORDER BY day
-    """, (f"-{days} days",)).fetchall()
+    """, (str(days),)).fetchall()
     conn.close()
     return [{
-        "day":     r["day"],
-        "revenue": round(r["revenue"] or 0, 2),
-        "profit":  round(r["profit"] or 0, 2),
+        "day":     str(r["day"]),
+        "revenue": round(float(r["revenue"] or 0), 2),
+        "profit":  round(float(r["profit"] or 0), 2),
     } for r in rows]
 
 
-# ==================== GUBITAŠI ====================
-
 def loss_makers(days=None):
-    """Proizvodi koji imaju negativan profit (prodaju se ispod cene koštanja)."""
     sql = """
-        SELECT
-            product_id, sku, product_name,
-            SUM(qty)     AS units,
-            SUM(revenue) AS revenue,
-            SUM(profit)  AS profit
+        SELECT product_id, sku, product_name,
+            SUM(qty) AS units, SUM(revenue) AS revenue, SUM(profit) AS profit
         FROM v_order_profit
     """
     params = []
     if days:
-        sql += " WHERE order_date >= date('now', ?)"
-        params.append(f"-{days} days")
-    sql += " GROUP BY product_id HAVING SUM(profit) < 0 ORDER BY profit ASC"
+        sql += " WHERE order_date >= now() - (%s || ' days')::interval"
+        params.append(str(days))
+    sql += " GROUP BY product_id, sku, product_name HAVING SUM(profit) < 0 ORDER BY profit ASC"
 
     conn = connect()
     rows = conn.execute(sql, params).fetchall()
@@ -190,18 +153,14 @@ def loss_makers(days=None):
         "sku":          r["sku"],
         "product_name": r["product_name"],
         "units":        r["units"],
-        "revenue":      round(r["revenue"] or 0, 2),
-        "profit":       round(r["profit"] or 0, 2),
+        "revenue":      round(float(r["revenue"] or 0), 2),
+        "profit":       round(float(r["profit"] or 0), 2),
     } for r in rows]
 
 
-# ==================== TOP KUPCI ====================
-
 def top_customers(days=None, limit=10):
-    """Kupci sa najvećim prihodom."""
     sql = """
-        SELECT
-            o.customer_name,
+        SELECT o.customer_name,
             COUNT(DISTINCT o.id) AS orders,
             SUM(oi.qty * oi.unit_price) AS revenue
         FROM orders o
@@ -210,9 +169,9 @@ def top_customers(days=None, limit=10):
     """
     params = []
     if days:
-        sql += " AND o.created_at >= date('now', ?)"
-        params.append(f"-{days} days")
-    sql += " GROUP BY o.customer_name ORDER BY revenue DESC LIMIT ?"
+        sql += " AND o.created_at >= now() - (%s || ' days')::interval"
+        params.append(str(days))
+    sql += " GROUP BY o.customer_name ORDER BY revenue DESC LIMIT %s"
     params.append(limit)
 
     conn = connect()
@@ -221,5 +180,5 @@ def top_customers(days=None, limit=10):
     return [{
         "customer_name": r["customer_name"],
         "orders":        r["orders"],
-        "revenue":       round(r["revenue"] or 0, 2),
+        "revenue":       round(float(r["revenue"] or 0), 2),
     } for r in rows]
