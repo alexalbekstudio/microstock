@@ -57,7 +57,8 @@ def adapt_query(sql):
     - datetime('now') -> CURRENT_TIMESTAMP
     - date('now') -> CURRENT_DATE
     - date('now', '+N days') -> (CURRENT_DATE + INTERVAL 'N days')
-    - date('now', ?) sa parametrom '-N days' -> rešava se preko regex-a u adapt_query_params
+    - date('now', ?) -> rešava se u adapt_query_and_params
+    - kolona >= CURRENT_DATE/TIMESTAMP -> kolona::timestamp >= ...
     """
     if not USE_POSTGRES:
         return sql
@@ -90,8 +91,31 @@ def adapt_query(sql):
         flags=re.IGNORECASE
     )
 
-    return sql
+    # 5. Automatski kast: <kolona> >= CURRENT_DATE|CURRENT_TIMESTAMP|<INTERVAL>
+    #    Pošto su u našoj šemi kolone sa datumima TEXT tipa (SQLite kompatibilno),
+    #    u PostgreSQL-u moramo da ih kastujemo u timestamp pri poređenju.
+    #
+    #    Pattern: <word> <op> CURRENT_DATE | CURRENT_TIMESTAMP | (CURRENT_DATE ± INTERVAL...)
+    #    Zamenjujemo sa: <word>::timestamp <op> <expression>
 
+    date_expr = r"(?:CURRENT_DATE|CURRENT_TIMESTAMP|\(CURRENT_DATE\s*[+-]\s*INTERVAL\s*'[^']+'\))"
+
+    # 5a. Iza operatora: >=, <=, >, <, =, !=, <>
+    sql = re.sub(
+        r"\b(\w+)\s*(>=|<=|>|<|=|!=|<>)\s*(" + date_expr + r")",
+        lambda m: f"{m.group(1)}::timestamp {m.group(2)} {m.group(3)}",
+        sql
+    )
+
+    # 5b. Ispred operatora: <date_expr> <= <kolona>
+    #     (npr. `date(deadline) <= date('now', ...)` već ima date(), ali za svaki slučaj)
+    sql = re.sub(
+        r"(" + date_expr + r")\s*(>=|<=|>|<|=|!=|<>)\s*(\w+)",
+        lambda m: f"{m.group(1)} {m.group(2)} {m.group(3)}::timestamp",
+        sql
+    )
+
+    return sql
 
 def adapt_query_and_params(sql, params):
     """
