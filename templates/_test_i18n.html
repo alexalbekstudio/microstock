@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test</title></head>
+<body>
+    <h1>{{ t("dashboard") }}</h1>
+    <p>Jezik: {{ current_lang }}</p>
+    <p>Valuta: {{ current_currency }}</p>
+    <p>Dostupni jezici: {{ available_languages | length }}</p>
+    <p>Dostupne valute: {{ available_currencies.keys() | list }}</p>
+</body>
+</html>

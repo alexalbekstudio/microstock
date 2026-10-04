@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}MicroStock{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="layout">
+
+  {# ============ SIDEBAR ============ #}
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar__logo">
+      <span>📦</span> MicroStock
+    </div>
+
+        <nav class="sidebar__nav">
+      {% set nav = request.endpoint or '' %}
+
+      <div class="sidebar__group">{{ t("group_main") }}</div>
+      <a href="{{ url_for('index') }}"
+         class="sidebar__link {{ 'active' if nav == 'index' }}">
+        <span class="sidebar__icon">🎛️</span> {{ t("dashboard") }}
+        {% if total_alerts and total_alerts > 0 %}
+          <span class="sidebar__badge">{{ total_alerts }}</span>
+        {% endif %}
+      </a>
+      <a href="{{ url_for('products') }}"
+         class="sidebar__link {{ 'active' if nav.startswith('products') or nav in ('add_product','edit_product','delete_product') }}">
+        <span class="sidebar__icon">📦</span> {{ t("products") }}
+      </a>
+      <a href="{{ url_for('orders') }}"
+         class="sidebar__link {{ 'active' if nav.startswith('orders') or nav in ('new_order','order_detail','edit_order','delete_order','change_status') }}">
+        <span class="sidebar__icon">🧾</span> {{ t("orders") }}
+      </a>
+      <a href="{{ url_for('analytics_view') }}"
+         class="sidebar__link {{ 'active' if nav == 'analytics_view' }}">
+        <span class="sidebar__icon">📊</span> {{ t("analytics") }}
+      </a>
+      <a href="{{ url_for('projects_view') }}"
+         class="sidebar__link {{ 'active' if nav.startswith('project') or nav in ('time_add','time_delete','expense_add','expense_delete','team_add') }}">
+        <span class="sidebar__icon">📁</span> {{ t("projects") }}
+      </a>
+
+      {% if current_user.is_authenticated and current_user.role in ('admin', 'manager') %}
+      <div class="sidebar__group">{{ t("group_tools") }}</div>
+      <a href="{{ url_for('import_view') }}"
+         class="sidebar__link {{ 'active' if nav in ('import_view','import_confirm') }}">
+        <span class="sidebar__icon">📥</span> {{ t("import") }}
+      </a>
+      {% endif %}
+      <a href="{{ url_for('pricing_view') }}"
+        class="sidebar__link {{ 'active' if nav in ('pricing_view','pricing_history','pricing_bulk','pricing_presets') }}">
+        <span class="sidebar__icon">💱</span> {{ t("pricing") }}
+      </a>
+      <a href="{{ url_for('pricing_history') }}"
+        class="sidebar__link {{ 'active' if nav == 'pricing_history' }}">
+        <span class="sidebar__icon">📜</span> {{ t("price_history") }}
+      </a>
+
+      {% if current_user.is_authenticated and current_user.role == 'admin' %}
+      <div class="sidebar__group">{{ t("group_admin") }}</div>
+      <a href="{{ url_for('admin_users') }}"
+         class="sidebar__link {{ 'active' if nav.startswith('admin_user') }}">
+        <span class="sidebar__icon">👥</span> {{ t("users") }}
+      </a>
+      <a href="{{ url_for('import_logs') }}"
+         class="sidebar__link {{ 'active' if nav == 'import_logs' }}">
+        <span class="sidebar__icon">📋</span> {{ t("import_log") }}
+      </a>
+      <a href="{{ url_for('admin_backups') }}"
+         class="sidebar__link {{ 'active' if nav in ('admin_backups','admin_backup_db') }}">
+        <span class="sidebar__icon">💾</span> {{ t("backups") }}
+      </a>
+      <a href="{{ url_for('pricing_presets') }}"
+        class="sidebar__link {{ 'active' if nav == 'pricing_presets' }}">
+        <span class="sidebar__icon">⚙️</span> {{ t("channel_presets") }}
+      </a>
+      {% endif %}
+    </nav>
+
+        {% if current_user.is_authenticated %}
+    <div class="sidebar__footer">
+      <a href="{{ url_for('auth.profile') }}"
+         class="sidebar__link {{ 'active' if nav == 'auth.profile' }}">
+        <span class="sidebar__icon">👤</span> {{ t("profile") }}
+      </a>
+      <a href="{{ url_for('auth.logout') }}" class="sidebar__link">
+        <span class="sidebar__icon">🚪</span> {{ t("logout") }}
+      </a>
+    </div>
+    {% endif %}
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  {# ============ MAIN ============ #}
+  <div class="main">
+
+    <header class="topbar">
+      <div style="display:flex; align-items:center; gap:.5rem;">
+        <button class="burger" id="burger" aria-label="Meni">☰</button>
+        <div class="topbar__title">{% block topbar_title %}MicroStock{% endblock %}</div>
+      </div>
+
+            <div class="topbar__right">
+
+        {# ===== Prekidač za jezik ===== #}
+        <div class="topbar__switcher">
+          <select class="topbar__select"
+                  onchange="location.href='/set-language/' + this.value"
+                  title="{{ t('language') }}">
+            {% for lang in available_languages %}
+              <option value="{{ lang.code }}"
+                      {% if lang.code == current_lang %}selected{% endif %}>
+                {{ lang.code | upper }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {# ===== Prekidač za valutu ===== #}
+        <div class="topbar__switcher">
+          <select class="topbar__select"
+                  onchange="location.href='/set-currency/' + this.value"
+                  title="{{ t('currency') }}">
+            {% for code, cfg in available_currencies.items() %}
+              <option value="{{ code }}"
+                      {% if code == current_currency %}selected{% endif %}>
+                {{ cfg.symbol }} {{ code }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {# ===== Korisnik ===== #}
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('auth.profile') }}" class="topbar__user">
+            <span>👤</span>
+            <span>{{ current_user.name or current_user.email }}</span>
+          </a>
+        {% endif %}
+
+      </div>
+    </header>
+
+    <main class="content">
+      {% with msgs = get_flashed_messages(with_categories=true) %}
+        {% if msgs %}
+          <div class="flash">
+            {% for cat, m in msgs %}
+              <div class="flash-{{ cat }}">{{ m }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<script>
+  // Mobile sidebar toggle
+  const burger  = document.getElementById('burger');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+
+  function toggleSidebar(open) {
+    sidebar.classList.toggle('open', open);
+    overlay.classList.toggle('show', open);
+  }
+  if (burger) burger.addEventListener('click', () => toggleSidebar(!sidebar.classList.contains('open')));
+  if (overlay) overlay.addEventListener('click', () => toggleSidebar(false));
+</script>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

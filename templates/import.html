@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ t("import") }} — MicroStock{% endblock %}
+{% block topbar_title %}📥 {{ t("import") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>📥 {{ t("import_title") }}</h1>
+</div>
+
+<p class="muted">{{ t("import_desc") }}</p>
+
+<form method="post" enctype="multipart/form-data">
+  <div class="card">
+    <h3>{{ t("import_step_1") }}</h3>
+
+    <div class="form-row">
+      <label>{{ t("import_csv_file") }}</label>
+      <input type="file" name="csv_file" accept=".csv,text/csv" required
+             class="file-input"
+             onchange="document.getElementById('file-info').textContent =
+                       this.files[0] ? this.files[0].name + ' (' +
+                       Math.round(this.files[0].size/1024) + ' KB)' : '';">
+      <div id="file-info" class="muted small"></div>
+    </div>
+
+    <div class="form-row">
+      <label>{{ t("import_platform") }}</label>
+      <select name="preset">
+        {% for key, p in presets.items() %}
+          <option value="{{ key }}">{{ p.label }}</option>
+        {% endfor %}
+      </select>
+      <div class="muted small">
+        {{ t("import_preset_hint") }}
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button type="submit" class="btn btn--primary">{{ t("import_load_preview") }}</button>
+      <a href="/orders" class="btn btn--secondary">{{ t("cancel") }}</a>
+    </div>
+  </div>
+</form>
+
+<div class="card card--info">
+  <h4 style="margin-top:0">{{ t("import_supported") }}</h4>
+  <div class="preset-grid">
+    {% for key, p in presets.items() %}
+      <div class="preset-item"><strong>{{ p.label }}</strong></div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}

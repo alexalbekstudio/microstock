@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ t("history_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}📜 {{ t("history_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>📜 {{ t("history_title") }}</h1>
+  <a href="{{ url_for('pricing_view') }}" class="btn btn--primary">← {{ t("open_calculator") }}</a>
+</div>
+
+{% if not logs %}
+  <div class="card card--info">
+    <p>{{ t("no_history") }}</p>
+    <a href="{{ url_for('pricing_view') }}" class="btn btn--primary">💱 {{ t("open_calculator") }}</a>
+  </div>
+{% else %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("date") }}</th>
+        <th>{{ t("users") | lower | capitalize }}</th>
+        <th>{{ t("col_product") }}</th>
+        <th>{{ t("col_mode") }}</th>
+        <th class="num">{{ t("cost_label") }}</th>
+        <th class="num">{{ t("col_fee_short") }}</th>
+        <th class="num">{{ t("kpi_margin") }}</th>
+        <th class="num">{{ t("col_price") }}</th>
+        <th class="num">{{ t("profit_label") }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in logs %}
+      <tr>
+        <td class="muted small">
+          {{ l.created_at|string|truncate(19, True, "") if l.created_at else "—" }}
+        </td>
+        <td>
+          {% if l.user_name %}{{ l.user_name }}
+          {% elif l.user_email %}<span class="muted small">{{ l.user_email }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td>{{ l.product_name or "—" }}</td>
+        <td>
+          {% if l.mode == "recommended" %}
+            <span class="badge badge--active">{{ t("mode_a_short") }}</span>
+          {% else %}
+            <span class="badge badge--shipped">{{ t("mode_b_short") }}</span>
+          {% endif %}
+        </td>
+        <td class="num">{{ display_money(l.cost or 0) }}</td>
+        <td class="num">{{ "%.1f"|format(l.fee_pct or 0) }}%</td>
+        <td class="num">{{ "%.1f"|format(l.margin_pct or 0) }}%</td>
+        <td class="num"><b>{{ display_money(l.price or 0) }}</b></td>
+        <td class="num {{ 'text-success' if (l.profit or 0) > 0 else 'text-danger' }}">
+          {{ display_money(l.profit or 0) }}
+        </td>
+        <td>
+          {% if l.applied %}
+            <span class="badge badge--paid" title="{{ t('applied') }}">✅</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endblock %}

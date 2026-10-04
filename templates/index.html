@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}{{ t("control_center") }} — MicroStock{% endblock %}
+{% block topbar_title %}🎛️ {{ t("control_center") }}{% endblock %}
+{% block content %}
+
+{# ============ PERIOD ============ #}
+<div class="page-header">
+  <h1>🎛️ {{ t("control_center") }}</h1>
+  <form method="get" class="filter-form" style="margin:0">
+    <label>{{ t("period") }}:</label>
+    <select name="days" onchange="this.form.submit()">
+      <option value="7"   {% if days==7 %}selected{% endif %}>{{ t("period_7") }}</option>
+      <option value="30"  {% if days==30 %}selected{% endif %}>{{ t("period_30") }}</option>
+      <option value="90"  {% if days==90 %}selected{% endif %}>{{ t("period_90") }}</option>
+      <option value="365" {% if days==365 %}selected{% endif %}>{{ t("period_365") }}</option>
+    </select>
+  </form>
+</div>
+
+{# ============ 1. KPI ============ #}
+<div class="kpi-strip">
+  <div class="kpi">
+    <div class="kpi__label">{{ t("kpi_revenue") }}</div>
+    <div class="kpi__value">{{ display_money(kpi.revenue) }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi {{ 'kpi--good' if kpi.profit > 0 else 'kpi--bad' }}">
+    <div class="kpi__label">{{ t("kpi_profit") }}</div>
+    <div class="kpi__value">{{ display_money(kpi.profit) }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">{{ t("kpi_margin") }}</div>
+    <div class="kpi__value">{{ kpi.margin }}%</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">{{ t("kpi_orders") }}</div>
+    <div class="kpi__value">{{ kpi.orders }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">{{ t("kpi_projects") }}</div>
+    <div class="kpi__value">{{ projects.active }}</div>
+    <div class="kpi__meta">{{ t("kpi_profit") | lower }} {{ display_money(projects.total_profit) }}</div>
+  </div>
+  <div class="kpi {{ 'kpi--alert' if total_alerts > 0 else '' }}">
+    <div class="kpi__label">{{ t("kpi_alerts") }}</div>
+    <div class="kpi__value">{{ total_alerts }}</div>
+    <div class="kpi__meta">{{ t("view_below") if total_alerts > 0 else t("all_clean") }}</div>
+  </div>
+</div>
+
+{# ============ 2. QUICK ACTIONS ============ #}
+<div class="quick-actions">
+  <a href="/products" class="qa-card">
+    <div class="qa-card__icon">📦</div>
+    <div>
+      <div class="qa-card__title">{{ t("qa_products") }}</div>
+      <div class="qa-card__meta">{{ low_stock|length }} {{ t("qa_products_meta") }}</div>
+    </div>
+  </a>
+  <a href="/orders" class="qa-card">
+    <div class="qa-card__icon">🧾</div>
+    <div>
+      <div class="qa-card__title">{{ t("qa_orders") }}</div>
+      <div class="qa-card__meta">{{ pending_orders|length }} {{ t("qa_orders_meta") }}</div>
+    </div>
+  </a>
+  <a href="/analytics" class="qa-card">
+    <div class="qa-card__icon">📊</div>
+    <div>
+      <div class="qa-card__title">{{ t("qa_analytics") }}</div>
+      <div class="qa-card__meta">{{ t("qa_analytics_meta") }}</div>
+    </div>
+  </a>
+  <a href="/projects" class="qa-card">
+    <div class="qa-card__icon">📁</div>
+    <div>
+      <div class="qa-card__title">{{ t("qa_projects") }}</div>
+      <div class="qa-card__meta">{{ projects.warnings }} {{ t("qa_projects_meta") }}</div>
+    </div>
+  </a>
+</div>
+
+{# ============ 3. ALARMI ============ #}
+{% if total_alerts > 0 %}
+<h2>⚠️ {{ t("alerts_title") }}</h2>
+<div class="alerts-grid">
+
+  {% if projects.warnings > 0 %}
+  <div class="alert-card danger">
+    <h3>🚨 {{ t("alerts_at_risk") }} ({{ projects.warnings }})</h3>
+    <ul>
+    {% for p in projects.at_risk %}
+      <li><a href="/projects/{{ p.project_id }}">{{ p.name }}</a> — <b>{{ p.budget_usage }}%</b></li>
+    {% endfor %}
+    </ul>
+    <a class="btn-link" href="/projects">{{ t("alerts_open_projects") }}</a>
+  </div>
+  {% endif %}
+
+  {% if low_stock %}
+  <div class="alert-card warn">
+    <h3>📦 {{ t("alerts_low_stock") }} ({{ low_stock|length }})</h3>
+    <ul>
+    {% for p in low_stock[:5] %}
+      <li><b>{{ p.name }}</b> ({{ p.sku }}) — {{ p.stock }}</li>
+    {% endfor %}
+    </ul>
+    <a class="btn-link" href="/products?low=1">{{ t("alerts_restock") }}</a>
+  </div>
+  {% endif %}
+
+  {% if loss_products %}
+  <div class="alert-card danger">
+    <h3>💸 {{ t("alerts_loss") }} ({{ loss_products|length }})</h3>
+    <ul>
+    {% for l in loss_products[:5] %}
+      <li><b>{{ l.product_name }}</b> — {{ display_money(l.profit) }}</li>
+    {% endfor %}
+    </ul>
+    <a class="btn-link" href="/analytics">{{ t("alerts_analysis") }}</a>
+  </div>
+  {% endif %}
+
+  {% if stale_projects %}
+  <div class="alert-card warn">
+    <h3>⏸️ {{ t("alerts_stale") }} ({{ stale_projects|length }})</h3>
+    <p>{{ t("alerts_stale_desc") }}</p>
+    <ul>
+    {% for p in stale_projects %}
+      <li><a href="/projects/{{ p.id }}">{{ p.name }}</a></li>
+    {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if soon_deadlines %}
+  <div class="alert-card warn">
+    <h3>⏰ {{ t("alerts_deadlines") }} ({{ soon_deadlines|length }})</h3>
+    <ul>
+    {% for p in soon_deadlines %}
+      <li><a href="/projects/{{ p.id }}">{{ p.name }}</a> — {{ p.deadline }}</li>
+    {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+</div>
+{% endif %}
+
+{# ============ 4. GRAFIKONI ============ #}
+<div class="split">
+  <div>
+    <h2>📈 {{ t("trend_title") }} ({{ days }} {{ t("period_7") | replace("7 ", "") }})</h2>
+    <div class="chart-box chart-box--sm">
+      <canvas id="ccTrend"></canvas>
+    </div>
+  </div>
+  <div>
+    <h2>💰 {{ t("profit_by_channel") }}</h2>
+    <div class="chart-box chart-box--sm">
+      <canvas id="ccChannel"></canvas>
+    </div>
+  </div>
+</div>
+
+{# ============ 5. NARUDŽBINE ============ #}
+<h2>🕐 {{ t("pending_orders") }} ({{ pending_orders|length }})</h2>
+{% if pending_orders %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>#</th><th>{{ t("col_customer") }}</th><th>{{ t("col_channel") }}</th><th class="num">{{ t("col_total") }}</th><th>{{ t("status") }}</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for o in pending_orders %}
+      <tr>
+        <td>{{ o.id }}</td>
+        <td>{{ o.customer_name }}</td>
+        <td>{{ o.channel }}</td>
+        <td class="num">{{ display_money(o.total or 0) }}</td>
+        <td><span class="badge badge--{{ o.status }}">{{ o.status }}</span></td>
+        <td><a class="btn-link btn--sm" href="/orders/{{ o.id }}">{{ t("open") }}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">{{ t("no_pending") }}</p>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const trendData = {{ trend|tojson }};
+  if (trendData.length > 0) {
+    new Chart(document.getElementById('ccTrend'), {
+      type: 'line',
+      data: {
+        labels: trendData.map(d => d.day),
+        datasets: [
+          { label: '{{ t("kpi_revenue") }}', data: trendData.map(d => d.revenue),
+            borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.12)',
+            tension: 0.3, fill: true },
+          { label: '{{ t("kpi_profit") }}', data: trendData.map(d => d.profit),
+            borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.12)',
+            tension: 0.3, fill: true }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+                 plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+                 scales: { y: { beginAtZero: true } } }
+    });
+  } else {
+    document.getElementById('ccTrend').parentElement.innerHTML =
+      '<p class="empty">{{ t("no_data") }}</p>';
+  }
+
+  const channelData = {{ channels|tojson }};
+  if (channelData.length > 0) {
+    new Chart(document.getElementById('ccChannel'), {
+      type: 'doughnut',
+      data: {
+        labels: channelData.map(c => c.channel_name),
+        datasets: [{
+          data: channelData.map(c => c.profit),
+          backgroundColor: ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6']
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+                 plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
+    });
+  } else {
+    document.getElementById('ccChannel').parentElement.innerHTML =
+      '<p class="empty">{{ t("no_sales") }}</p>';
+  }
+</script>
+{% endblock %}

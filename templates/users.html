@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ t("users_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}👥 {{ t("users_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>👥 {{ t("users_title") }}</h1>
+  <a href="{{ url_for('admin_user_new') }}" class="btn btn--primary">+ {{ t("new_user") }}</a>
+</div>
+
+{% if users %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("user_name") }}</th><th>{{ t("user_email") }}</th><th>{{ t("role") }}</th>
+        <th>{{ t("status") }}</th><th>{{ t("last_login") }}</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td><b>{{ u.name }}</b></td>
+        <td>{{ u.email }}</td>
+        <td><span class="badge badge-{{ u.role }}">{{ u.role }}</span></td>
+        <td>
+          {% if u.active %}
+            <span class="badge badge--paid">{{ t("user_active") | lower }}</span>
+          {% else %}
+            <span class="badge badge--cancelled">{{ t("user_inactive") | lower }}</span>
+          {% endif %}
+        </td>
+        <td class="muted small">{{ u.last_login or "—" }}</td>
+        <td>
+          <a href="{{ url_for('admin_user_edit', user_id=u.id) }}" class="link-btn" title="{{ t('edit') }}">✏️</a>
+
+          {% if u.id != current_user.id %}
+          <form method="post" action="{{ url_for('admin_user_toggle', user_id=u.id) }}" style="display:inline">
+            <button class="link-btn" title="{{ t('toggle_deactivate') if u.active else t('toggle_activate') }}">
+              {{ "🚫" if u.active else "✅" }}
+            </button>
+          </form>
+          <form method="post" action="{{ url_for('admin_user_delete', user_id=u.id) }}"
+                style="display:inline"
+                onsubmit="return confirm('{{ t('delete_user_confirm') }} {{ u.email }}?');">
+            <button class="link-btn" title="{{ t('delete') }}">🗑️</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card card--info">
+  <p>{{ t("no_users") }}</p>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}{{ t("projects") }} — MicroStock{% endblock %}
+{% block topbar_title %}📁 {{ t("projects") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>📁 {{ t("projects") }}</h1>
+  <div class="page-header__actions">
+    {% if current_user.role in ('admin', 'manager') %}
+      <a href="/projects/new" class="btn btn--primary">+ {{ t("new_project") }}</a>
+    {% endif %}
+  </div>
+</div>
+
+{# ============ KPI ============ #}
+<div class="kpi-strip" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+  <div class="kpi">
+    <div class="kpi__label">{{ t("active_projects") }}</div>
+    <div class="kpi__value">{{ overview.active }}</div>
+    <div class="kpi__meta">{{ t("projects_count") }}</div>
+  </div>
+  <div class="kpi {{ 'kpi--warn' if overview.warnings > 0 else '' }}">
+    <div class="kpi__label">{{ t("at_risk") }}</div>
+    <div class="kpi__value">{{ overview.warnings }}</div>
+    <div class="kpi__meta">{{ t("above_80_budget") }}</div>
+  </div>
+  <div class="kpi {{ 'kpi--good' if overview.total_profit > 0 else 'kpi--bad' }}">
+    <div class="kpi__label">{{ t("total_profit") }}</div>
+    <div class="kpi__value">{{ display_money(overview.total_profit) }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+</div>
+
+{# ============ FILTER ============ #}
+<form method="get" class="filter-form">
+  <label>{{ t("status") }}:</label>
+  <select name="status" onchange="this.form.submit()">
+    <option value="">{{ t("all") }}</option>
+    <option value="active"    {% if f_status=='active' %}selected{% endif %}>{{ t("active_only") }}</option>
+    <option value="done"      {% if f_status=='done' %}selected{% endif %}>{{ t("done_only") }}</option>
+    <option value="cancelled" {% if f_status=='cancelled' %}selected{% endif %}>{{ t("cancelled_only") }}</option>
+  </select>
+</form>
+
+{# ============ TABELA ============ #}
+{% if projects %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("project_code") }}</th><th>{{ t("project_name") }}</th><th>{{ t("client") }}</th>
+        <th class="num">{{ t("col_value") }}</th><th class="num">{{ t("col_cost") }}</th>
+        <th class="num">{{ t("kpi_profit") }}</th><th class="num">{{ t("col_margin") }}</th>
+        <th>{{ t("col_budget") }}</th><th>{{ t("status") }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in projects %}
+      <tr class="{{ 'low' if p.alert=='danger' else '' }}">
+        <td><a href="/projects/{{ p.project_id }}"><b>{{ p.code }}</b></a></td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.client or '—' }}</td>
+        <td class="num">{{ display_money(p.contract_value) }}</td>
+        <td class="num">{{ display_money(p.total_cost) }}</td>
+        <td class="num"><b>{{ display_money(p.profit) }}</b></td>
+        <td class="num">{{ "%.1f"|format(p.margin) }}%</td>
+        <td style="min-width:130px">
+          <div class="progress">
+            <div class="bar {{ p.alert }}" style="width: {{ [p.budget_usage, 100]|min }}%"></div>
+          </div>
+          <small class="muted">{{ "%.0f"|format(p.budget_usage) }}%</small>
+        </td>
+        <td>
+          {% if p.status == 'active' %}
+            <span class="badge badge--active">{{ t("status_active") }}</span>
+          {% elif p.status == 'done' %}
+            <span class="badge badge--done">{{ t("status_done") }}</span>
+          {% elif p.status == 'cancelled' %}
+            <span class="badge badge--cancelled">{{ t("status_cancelled") }}</span>
+          {% else %}
+            <span class="badge">{{ p.status }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card card--info">
+  <p>{{ t("no_projects") }}</p>
+  {% if current_user.role in ('admin', 'manager') %}
+    <a href="/projects/new" class="btn btn--primary">+ {{ t("create_first_project") }}</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

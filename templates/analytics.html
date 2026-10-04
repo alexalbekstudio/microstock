@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}{{ t("analytics") }} — MicroStock{% endblock %}
+{% block topbar_title %}📊 {{ t("analytics") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>📊 {{ t("analytics_title") }}</h1>
+  <form method="get" class="filter-form" style="margin:0">
+    <label>{{ t("period") }}:</label>
+    <select name="days" onchange="this.form.submit()">
+      <option value=""    {% if not days %}selected{% endif %}>{{ t("all_time") }}</option>
+      <option value="7"   {% if days==7 %}selected{% endif %}>{{ t("period_7") }}</option>
+      <option value="30"  {% if days==30 %}selected{% endif %}>{{ t("period_30") }}</option>
+      <option value="90"  {% if days==90 %}selected{% endif %}>{{ t("period_90") }}</option>
+      <option value="365" {% if days==365 %}selected{% endif %}>{{ t("period_365") }}</option>
+    </select>
+  </form>
+</div>
+
+{# ============ KPI ============ #}
+<div class="kpi-strip">
+  <div class="kpi">
+    <div class="kpi__label">{{ t("kpi_revenue") }}</div>
+    <div class="kpi__value">{{ display_money(kpi.revenue) }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">{{ t("kpi_fees") }}</div>
+    <div class="kpi__value">{{ display_money(kpi.fees) }}</div>
+    <div class="kpi__meta">{{ t("kpi_fees_meta") }}</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">{{ t("kpi_cost") }}</div>
+    <div class="kpi__value">{{ display_money(kpi.cost) }}</div>
+    <div class="kpi__meta">{{ t("kpi_cost_meta") }}</div>
+  </div>
+  {# NOVO: KPI za dostavu #}
+  <div class="kpi">
+    <div class="kpi__label">{{ t("shipping") }}</div>
+    <div class="kpi__value">{{ display_money(kpi.shipping) }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi {{ 'kpi--good' if kpi.profit > 0 else 'kpi--bad' }}">
+    <div class="kpi__label">{{ t("kpi_profit") }}</div>
+    <div class="kpi__value">{{ display_money(kpi.profit) }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">{{ t("kpi_margin") }}</div>
+    <div class="kpi__value">{{ kpi.margin }}%</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">{{ t("kpi_orders") }}</div>
+    <div class="kpi__value">{{ kpi.orders }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+</div>
+
+{# ============ TREND ============ #}
+<h2>📈 {{ t("trend_title_full") }} ({{ days or 30 }})</h2>
+<div class="chart-box">
+  <canvas id="trendChart"></canvas>
+</div>
+
+{# ============ KANALI ============ #}
+<h2>💰 {{ t("profit_by_channel_full") }}</h2>
+{% if channels %}
+<div class="chart-box">
+  <canvas id="channelChart"></canvas>
+</div>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("col_channel") }}</th>
+        <th class="num">{{ t("col_fee_percent") }}</th>
+        <th class="num">{{ t("col_revenue") }}</th>
+        <th class="num">{{ t("col_fees") }}</th>
+        <th class="num">{{ t("col_cost") }}</th>
+        <th class="num">{{ t("shipping") }}</th>
+        <th class="num">{{ t("kpi_profit") }}</th>
+        <th class="num">{{ t("col_margin") }}</th>
+        <th class="num">{{ t("col_units") }}</th>
+        <th class="num">{{ t("col_orders") }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in channels %}
+      <tr class="{{ 'low' if c.profit < 0 else '' }}">
+        <td><b>{{ c.channel_name }}</b></td>
+        <td class="num">{{ c.fee_percent }}%</td>
+        <td class="num">{{ display_money(c.revenue) }}</td>
+        <td class="num">{{ display_money(c.fees) }}</td>
+        <td class="num">{{ display_money(c.cost) }}</td>
+        <td class="num">{{ display_money(c.shipping) }}</td>
+        <td class="num"><b>{{ display_money(c.profit) }}</b></td>
+        <td class="num">{{ c.margin }}%</td>
+        <td class="num">{{ c.units }}</td>
+        <td class="num">{{ c.orders }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">{{ t("no_data_orders") }}</p>
+{% endif %}
+
+{# ============ PROIZVODI ============ #}
+<h2>🏆 {{ t("profit_by_product") }}</h2>
+{% if products %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("sku") }}</th>
+        <th>{{ t("col_product") }}</th>
+        <th class="num">{{ t("col_units") }}</th>
+        <th class="num">{{ t("col_revenue") }}</th>
+        <th class="num">{{ t("col_cost") }}</th>
+        <th class="num">{{ t("shipping") }}</th>
+        <th class="num">{{ t("kpi_profit") }}</th>
+        <th class="num">{{ t("col_margin") }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in products %}
+      <tr class="{{ 'low' if p.profit < 0 else '' }}">
+        <td><code>{{ p.sku }}</code></td>
+        <td>{{ p.product_name }}</td>
+        <td class="num">{{ p.units }}</td>
+        <td class="num">{{ display_money(p.revenue) }}</td>
+        <td class="num">{{ display_money(p.cost) }}</td>
+        <td class="num">{{ display_money(p.shipping) }}</td>
+        <td class="num"><b>{{ display_money(p.profit) }}</b></td>
+        <td class="num">{{ p.margin }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">{{ t("no_sales_yet") }}</p>
+{% endif %}
+
+{# ============ GUBITAŠI ============ #}
+{% if loss %}
+<div class="card card--danger">
+  <h3>⚠️ {{ t("loss_products_title") }}</h3>
+  <p class="muted small">{{ t("loss_products_desc") }}</p>
+  <ul>
+  {% for l in loss %}
+    <li>
+      <b>{{ l.product_name }}</b> ({{ l.sku }}) —
+      {{ t("sold") }} {{ l.units }} {{ t("units_short") }}, {{ t("col_revenue") | lower }} {{ display_money(l.revenue) }},
+      <span class="text-danger"><b>{{ t("loss_word") }} {{ display_money(l.profit) }}</b></span>
+    </li>
+  {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{# ============ KUPCI ============ #}
+<h2>👥 {{ t("top_customers") }}</h2>
+{% if customers %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>{{ t("col_customer") }}</th><th class="num">{{ t("col_orders") }}</th><th class="num">{{ t("col_total_revenue") }}</th></tr>
+    </thead>
+    <tbody>
+      {% for c in customers %}
+      <tr>
+        <td>{{ c.customer_name }}</td>
+        <td class="num">{{ c.orders }}</td>
+        <td class="num">{{ display_money(c.revenue) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">{{ t("no_customers_yet") }}</p>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const trendData = {{ trend|tojson }};
+  if (trendData.length > 0) {
+    new Chart(document.getElementById('trendChart'), {
+      type: 'line',
+      data: {
+        labels: trendData.map(d => d.day),
+        datasets: [
+          { label: '{{ t("kpi_revenue") }}', data: trendData.map(d => d.revenue),
+            borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.12)',
+            tension: 0.3, fill: true },
+          { label: '{{ t("kpi_profit") }}', data: trendData.map(d => d.profit),
+            borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.12)',
+            tension: 0.3, fill: true }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+                 plugins: { legend: { position: 'bottom' } },
+                 scales: { y: { beginAtZero: true } } }
+    });
+  } else {
+    document.getElementById('trendChart').parentElement.innerHTML =
+      '<p class="empty">{{ t("no_trend_data") }}</p>';
+  }
+
+  const channelData = {{ channels|tojson }};
+  if (channelData.length > 0) {
+    new Chart(document.getElementById('channelChart'), {
+      type: 'bar',
+      data: {
+        labels: channelData.map(c => c.channel_name),
+        datasets: [
+          { label: '{{ t("col_revenue") }}', data: channelData.map(c => c.revenue), backgroundColor: 'rgba(99,102,241,.75)' },
+          { label: '{{ t("kpi_profit") }}',  data: channelData.map(c => c.profit),  backgroundColor: 'rgba(16,185,129,.75)' },
+          { label: '{{ t("col_fees") }}',    data: channelData.map(c => c.fees),    backgroundColor: 'rgba(239,68,68,.75)'  },
+          { label: '{{ t("shipping") }}',    data: channelData.map(c => c.shipping), backgroundColor: 'rgba(245,158,11,.75)' }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+                 plugins: { legend: { position: 'bottom' } },
+                 scales: { y: { beginAtZero: true } } }
+    });
+  } else {
+    document.getElementById('channelChart').parentElement.innerHTML =
+      '<p class="empty">{{ t("no_channel_data") }}</p>';
+  }
+</script>
+{% endblock %}

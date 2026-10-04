@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}{{ p.name }} — {{ t("projects") }}{% endblock %}
+{% block topbar_title %}📁 {{ p.code }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>{{ p.name }}</h1>
+    <div class="muted small" style="margin-top:.25rem">
+      <b>{{ t("project_code") }}:</b> {{ p.code }} ·
+      <b>{{ t("client") }}:</b> {{ p.client or '—' }} ·
+      <b>{{ t("deadline") }}:</b> {{ p.deadline or '—' }}
+    </div>
+  </div>
+  <div class="page-header__actions">
+    {% if current_user.role in ('admin', 'manager') %}
+      <a href="/projects/{{ p.project_id }}/edit" class="btn btn--secondary">✏️ {{ t("edit") }}</a>
+      <form method="post" action="/projects/{{ p.project_id }}/delete" style="display:inline"
+            onsubmit="return confirm('{{ t('delete_project_confirm') }}')">
+        <button type="submit" class="btn btn--danger">🗑️ {{ t("delete") }}</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+{# ============ ALARM ============ #}
+{% if p.alert == 'danger' %}
+<div class="alert danger">
+  <b>🚨 {{ t("budget_exceeded") }}</b> {{ t("budget_used_pct") }} {{ "%.1f"|format(p.budget_usage) }}{{ t("budget_used_pct_2") }}
+</div>
+{% elif p.alert == 'warn' %}
+<div class="alert">
+  <b>⚠️ {{ t("budget_used_warn") }}</b> {{ t("budget_used_pct") }} {{ "%.1f"|format(p.budget_usage) }}{{ t("budget_used_pct_3") }}
+</div>
+{% endif %}
+
+{# ============ KPI ============ #}
+<div class="kpi-strip">
+  <div class="kpi">
+    <div class="kpi__label">{{ t("contracted") }}</div>
+    <div class="kpi__value">{{ display_money(p.contract_value) }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">{{ t("total_cost") }}</div>
+    <div class="kpi__value">{{ display_money(p.total_cost) }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi {{ 'kpi--good' if p.profit > 0 else 'kpi--bad' }}">
+    <div class="kpi__label">{{ t("kpi_profit") }}</div>
+    <div class="kpi__value">{{ display_money(p.profit) }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">{{ t("kpi_margin") }}</div>
+    <div class="kpi__value">{{ "%.1f"|format(p.margin) }}%</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+</div>
+
+{# ============ SATI + TROŠKOVI ============ #}
+<div class="split">
+
+  {# --- Sati --- #}
+  <div>
+    <h2>⏱️ {{ t("work_hours") }} ({{ "%.1f"|format(p.total_hours) }} h)</h2>
+
+    {% if current_user.role in ('admin', 'manager') %}
+    <form method="post" action="/projects/{{ p.project_id }}/time/add" class="inline-form">
+      <select name="member_id" required style="flex:2">
+        {% for m in members %}
+          <option value="{{ m.id }}">{{ m.name }} ({{ display_money(m.hourly_rate) }}/h)</option>
+        {% endfor %}
+      </select>
+      <input name="entry_date" type="date" required>
+      <input name="hours" type="number" step="0.25" min="0.25" placeholder="{{ t('hours_placeholder') }}" required>
+      <input name="description" placeholder="{{ t('description_placeholder') }}" style="flex:2">
+      <button type="submit" class="btn btn--primary">{{ t("add") }}</button>
+    </form>
+    {% endif %}
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>{{ t("date_col") }}</th><th>{{ t("member") }}</th><th class="num">{{ t("hours") }}</th><th class="num">{{ t("cost_col") }}</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for t in time_entries %}
+          <tr>
+            <td>{{ t.entry_date }}</td>
+            <td>{{ t.member_name }}</td>
+            <td class="num">{{ "%.2f"|format(t.hours) }}</td>
+            <td class="num">{{ display_money(t.cost) }}</td>
+            <td>
+              {% if current_user.role in ('admin', 'manager') %}
+              <form method="post" action="/time/{{ t.id }}/delete" style="display:inline"
+                    onsubmit="return confirm('{{ t('delete_entry_confirm') }}')">
+                <button class="link-btn">🗑️</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="empty">{{ t("no_time_entries") }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# --- Troškovi --- #}
+  <div>
+    <h2>💸 {{ t("expenses") }} ({{ display_money(p.expense_cost) }})</h2>
+
+    {% if current_user.role in ('admin', 'manager') %}
+    <form method="post" action="/projects/{{ p.project_id }}/expense/add" class="inline-form">
+      <input name="expense_date" type="date" required>
+      <select name="category">
+        <option value="materijal">{{ t("category_material") }}</option>
+        <option value="podizvodjac">{{ t("category_subcontractor") }}</option>
+        <option value="put">{{ t("category_travel") }}</option>
+        <option value="ostalo">{{ t("category_other") }}</option>
+      </select>
+      <input name="description" placeholder="{{ t('description_placeholder') }}" style="flex:2">
+      <input name="amount" type="number" step="0.01" placeholder="{{ t('amount_placeholder') }}" required>
+      <button type="submit" class="btn btn--primary">{{ t("add") }}</button>
+    </form>
+    {% endif %}
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>{{ t("date_col") }}</th><th>{{ t("category") }}</th><th>{{ t("description") }}</th><th class="num">{{ t("amount") }}</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for e in expenses %}
+          <tr>
+            <td>{{ e.expense_date }}</td>
+            <td><span class="badge badge--viewer">{{ e.category }}</span></td>
+            <td>{{ e.description }}</td>
+            <td class="num">{{ display_money(e.amount) }}</td>
+            <td>
+              {% if current_user.role in ('admin', 'manager') %}
+              <form method="post" action="/expense/{{ e.id }}/delete" style="display:inline"
+                    onsubmit="return confirm('{{ t('delete_expense_confirm') }}')">
+                <button class="link-btn">🗑️</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="empty">{{ t("no_expenses") }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+{# ============ TIM ============ #}
+{% if current_user.role in ('admin', 'manager') %}
+<div class="card">
+  <h3>👥 {{ t("add_team_member") }}</h3>
+  <form method="post" action="/team/add" class="inline-form">
+    <input name="name" placeholder="{{ t('team_name') }}" required>
+    <input name="role" placeholder="{{ t('team_role') }}">
+    <input name="hourly_rate" type="number" step="0.01" placeholder="{{ t('hourly_rate_placeholder') }}" required>
+    <button type="submit" class="btn btn--primary">{{ t("add_to_team") }}</button>
+  </form>
+</div>
+{% endif %}
+
+{% endblock %}

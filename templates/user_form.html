@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ t("edit_user") if user else t("new_user") }} — MicroStock{% endblock %}
+{% block topbar_title %}👥 {{ t("edit_user") if user else t("new_user") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>{{ "✏️ " + t("edit_user") if user else "➕ " + t("new_user") }}</h1>
+  <a href="{{ url_for('admin_users') }}" class="btn btn--secondary">← {{ t("back") }}</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none;">
+      <div class="form-row">
+        <label>{{ t("user_name") }}</label>
+        <input name="name" value="{{ user.name if user else '' }}" required>
+      </div>
+      <div class="form-row">
+        <label>{{ t("user_email") }}</label>
+        <input name="email" type="email" value="{{ user.email if user else '' }}" required>
+      </div>
+      <div class="form-row">
+        <label>{{ t("role") }}</label>
+        <select name="role">
+          {% for r in roles %}
+            <option value="{{ r }}" {% if user and user.role == r %}selected{% endif %}>{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    {% if user %}
+    <div class="form-row">
+      <label class="checkbox-label">
+        <input type="checkbox" name="active" {% if user.active %}checked{% endif %}>
+        {{ t("user_active") }}
+      </label>
+    </div>
+    {% endif %}
+
+    <div class="form-row">
+      <label>{{ t("new_password_optional") if user else t("password") }}</label>
+      <input type="password" name="{{ 'new_password' if user else 'password' }}"
+             {% if not user %}required{% endif %} minlength="6"
+             placeholder="{{ t('password_leave_empty') if user else t('password_min_6') }}">
+    </div>
+
+    <div class="btn-row">
+      <button type="submit" class="btn btn--primary">💾 {{ t("save") }}</button>
+      <a href="{{ url_for('admin_users') }}" class="btn btn--secondary">{{ t("cancel") }}</a>
+    </div>
+  </div>
+</form>
+
+{% endblock %}

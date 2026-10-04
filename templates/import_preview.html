@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}{{ t("import_preview_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}📥 {{ t("import_preview_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>👁 {{ t("import_preview_title") }}</h1>
+  <a href="{{ url_for('import_view') }}" class="btn btn--secondary">← {{ t("back") }}</a>
+</div>
+
+<p class="muted">
+  {{ t("import_file_label") }}: <strong>{{ filename or "upload.csv" }}</strong> &nbsp;·&nbsp;
+  {{ t("import_total_rows") }}: <strong>{{ total_rows }}</strong> &nbsp;·&nbsp;
+  {{ t("import_showing_first") }} {{ rows|length }}.
+</p>
+
+{% if errors %}
+<div class="alert alert-err">
+  <strong>⚠️ {{ t("import_missing_mapping") }}</strong>
+  <ul>
+    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+  <p>{{ t("import_fill_manual") }}</p>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('import_confirm') }}">
+  <input type="hidden" name="preset" value="{{ preset_key }}">
+
+  {# ============ 1. KANAL ============ #}
+  <div class="card">
+    <h3>{{ t("import_step_channel") }}</h3>
+    <div class="form-row">
+      <label>{{ t("import_channel_sale") }}</label>
+      <select name="channel_id" required>
+        <option value="">{{ t("import_channel_pick") }}</option>
+        {% for c in channels %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+      <div class="muted small">{{ t("import_channel_hint") }}</div>
+    </div>
+  </div>
+
+  {# ============ 2. MAPIRANJE ============ #}
+  <div class="card">
+    <h3>{{ t("import_step_mapping") }}</h3>
+    <p class="muted small">{{ t("import_mapping_hint") }}</p>
+
+    {% set top_fields = [
+      ("customer_name", t("map_customer_name")),
+      ("external_id",   t("map_external_id")),
+      ("order_date",    t("map_order_date")),
+      ("status",        t("map_status")),
+      ("note",          t("map_note")),
+    ] %}
+    {% set item_fields = [
+      ("items.sku",        t("map_items_sku")),
+      ("items.name",       t("map_items_name")),
+      ("items.qty",        t("map_items_qty")),
+      ("items.unit_price", t("map_items_unit_price")),
+    ] %}
+
+    <h4 class="map-heading">{{ t("import_mapping_basic") }}</h4>
+    <div class="map-grid">
+      {% for key, label in top_fields %}
+      <div class="map-row">
+        <div class="map-label">{{ label }}</div>
+        <select name="map_{{ key }}" class="map-select">
+          <option value="">{{ t("import_dont_map") }}</option>
+          {% for f in fieldnames %}
+            <option value="{{ f }}" {% if mapping.get(key) == f %}selected{% endif %}>{{ f }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endfor %}
+    </div>
+
+    <h4 class="map-heading">{{ t("import_mapping_items") }}</h4>
+    <div class="map-grid">
+      {% for key, label in item_fields %}
+      <div class="map-row">
+        <div class="map-label">{{ label }}</div>
+        <select name="map_{{ key }}" class="map-select">
+          <option value="">{{ t("import_dont_map") }}</option>
+          {% for f in fieldnames %}
+            <option value="{{ f }}" {% if mapping["items"].get(key.split(".")[1]) == f %}selected{% endif %}>{{ f }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ============ 3. OPCIJE ============ #}
+  <div class="card">
+    <h3>{{ t("import_step_options") }}</h3>
+    <div class="form-row">
+      <label class="checkbox-label">
+        <input type="checkbox" name="auto_create_products" checked>
+        {{ t("import_auto_create") }}
+      </label>
+      <div class="muted small">{{ t("import_auto_create_hint") }}</div>
+    </div>
+  </div>
+
+  {# ============ 4. PREVIEW ============ #}
+  <div class="card">
+    <h3>{{ t("import_step_preview") }} ({{ t("import_showing_first") }} {{ rows|length }} {{ t("import_rows_count") }})</h3>
+    <div class="table-scroll">
+      <table class="table-compact">
+        <thead>
+          <tr>{% for f in fieldnames %}<th>{{ f }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>{% for f in fieldnames %}<td>{{ r.get(f, "") }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button type="submit" class="btn btn--primary">{{ t("import_confirm") }}</button>
+    <a href="{{ url_for('import_view') }}" class="btn btn--secondary">{{ t("cancel") }}</a>
+  </div>
+</form>
+
+{% endblock %}

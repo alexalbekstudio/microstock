@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}{{ t("pricing_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}💱 {{ t("pricing_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>💱 {{ t("pricing_title") }}</h1>
+  <div class="page-header__actions">
+    <a href="{{ url_for('pricing_history') }}" class="btn btn--secondary">📜 {{ t("pricing_history") }}</a>
+    {% if current_user.role in edit_roles %}
+      <a href="{{ url_for('pricing_bulk') }}" class="btn btn--secondary">📊 {{ t("pricing_bulk") }}</a>
+    {% endif %}
+    {% if current_user.role == 'admin' %}
+      <a href="{{ url_for('pricing_presets') }}" class="btn btn--secondary">⚙️ {{ t("channel_presets") }}</a>
+    {% endif %}
+  </div>
+</div>
+
+<p class="muted">{{ t("pricing_desc") }}</p>
+
+{# ============ ZAJEDNIČKI INPUTI ============ #}
+<div class="card">
+  <h3>⚙️ {{ t("pricing_basic") }}</h3>
+  <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none;">
+    <div class="form-row">
+      <label>{{ t("in_cost") }}</label>
+      <input id="in_cost" type="number" step="0.01" value="1000" min="0">
+    </div>
+    <div class="form-row">
+      <label>{{ t("in_shipping") }}</label>
+      <input id="in_shipping" type="number" step="0.01" value="0" min="0">
+    </div>
+    <div class="form-row">
+      <label>{{ t("in_fee") }}</label>
+      <input id="in_fee" type="number" step="0.1" value="0" min="0" max="99">
+    </div>
+    <div class="form-row">
+      <label>{{ t("in_tax") }}</label>
+      <input id="in_tax" type="number" step="0.1" value="0" min="0" max="99">
+    </div>
+  </div>
+</div>
+
+{# ============ DVA REŽIMA ============ #}
+<div class="split">
+
+  {# --- Režim A --- #}
+  <div class="card">
+    <h3>🎯 {{ t("mode_a") }}</h3>
+
+    <div class="form-row">
+      <label>{{ t("desired_margin") }}</label>
+      <input id="in_margin" type="number" step="0.1" value="30" min="0" max="99">
+      <div class="muted small">{{ t("desired_margin_desc") }}</div>
+    </div>
+
+    <div id="result-a" class="result-box">
+      <div class="result-row result-headline">
+        <span>{{ t("recommended_price") }}</span>
+        <strong id="out_price">—</strong>
+      </div>
+      <div class="result-row">
+        <span>{{ t("profit_label") }}</span>
+        <span id="out_profit">—</span>
+      </div>
+      <div class="result-row">
+        <span>{{ t("real_margin") }}</span>
+        <span id="out_margin">—</span>
+      </div>
+      <div class="result-row">
+        <span>{{ t("markup_label") }}</span>
+        <span id="out_markup">—</span>
+      </div>
+      <hr>
+      <div class="result-row small">
+        <span>{{ t("cost_label") }}</span>
+        <span id="out_cost">—</span>
+      </div>
+      <div class="result-row small">
+        <span>{{ t("shipping_label") }}</span>
+        <span id="out_ship">—</span>
+      </div>
+      <div class="result-row small">
+        <span>{{ t("fee_label") }}</span>
+        <span id="out_fee">—</span>
+      </div>
+      <div class="result-row small">
+        <span>{{ t("tax_label") }}</span>
+        <span id="out_tax">—</span>
+      </div>
+    </div>
+  </div>
+
+  {# --- Režim B --- #}
+  <div class="card">
+    <h3>💰 {{ t("mode_b") }}</h3>
+
+    <div class="form-row">
+      <label>{{ t("selling_price") }}</label>
+      <input id="in_price" type="number" step="0.01" value="1500" min="0">
+    </div>
+
+    <div id="result-b" class="result-box">
+      <div class="result-row result-headline">
+        <span>{{ t("profit_label") }}</span>
+        <strong id="out2_profit">—</strong>
+      </div>
+      <div class="result-row">
+        <span>{{ t("kpi_margin") }}</span>
+        <span id="out2_margin">—</span>
+      </div>
+      <div class="result-row">
+        <span>{{ t("markup_short") }}</span>
+        <span id="out2_markup">—</span>
+      </div>
+      <hr>
+      <div class="result-row small">
+        <span>{{ t("cost_label") }}</span>
+        <span id="out2_cost">—</span>
+      </div>
+      <div class="result-row small">
+        <span>{{ t("shipping_label") }}</span>
+        <span id="out2_ship">—</span>
+      </div>
+      <div class="result-row small">
+        <span>{{ t("fee_label") }}</span>
+        <span id="out2_fee">—</span>
+      </div>
+      <div class="result-row small">
+        <span>{{ t("tax_label") }}</span>
+        <span id="out2_tax">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ============ PRIMENI NA PROIZVOD ============ #}
+{% if current_user.role in edit_roles %}
+<div class="card">
+  <h3>📦 {{ t("apply_to_product") }}</h3>
+  <p class="muted small">{{ t("apply_desc") }}</p>
+  <form method="post" action="{{ url_for('pricing_apply') }}" class="inline-form">
+    <select name="product_id" required style="flex:2">
+      <option value="">{{ t("select_product") }}</option>
+      {% for p in products %}
+        <option value="{{ p.id }}">
+          {{ p.name }} ({{ p.sku }}) — {{ display_money(p.price) }}
+        </option>
+      {% endfor %}
+    </select>
+    <input name="new_price" id="apply_price" type="number" step="0.01"
+           placeholder="{{ t('new_price') }}" required>
+
+    {# Skrivena polja za istoriju #}
+    <input type="hidden" name="cost"       id="h_cost">
+    <input type="hidden" name="shipping"   id="h_ship">
+    <input type="hidden" name="fee_pct"    id="h_fee">
+    <input type="hidden" name="tax_pct"    id="h_tax">
+    <input type="hidden" name="margin_pct" id="h_margin">
+
+    <button type="submit" class="btn btn--primary"
+            onclick="return confirm('{{ t('apply_confirm') }}')">
+      ✅ {{ t("apply") }}
+    </button>
+  </form>
+</div>
+{% endif %}
+
+{# ============ PRESETI KANALA (iz baze) ============ #}
+<div class="card card--info">
+  <h3>💡 {{ t("presets_title") }}</h3>
+  <p class="muted small">{{ t("channel_presets_hint") }}</p>
+  <div class="chips">
+    {% for p in presets %}
+      <button type="button" class="chip chip-btn"
+              data-fee="{{ p.fee_pct }}"
+              data-tax="{{ p.tax_pct }}">
+        {{ p.name }} {{ p.fee_pct }}%
+        {% if p.tax_pct %} + PDV {{ p.tax_pct }}%{% endif %}
+      </button>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const $ = id => document.getElementById(id);
+
+  function fmt(n) {
+    if (isNaN(n) || n === null) return "—";
+    return Number(n).toLocaleString('sr-RS', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+  }
+
+  function readInputs() {
+    return {
+      cost:     parseFloat($('in_cost').value)     || 0,
+      shipping: parseFloat($('in_shipping').value) || 0,
+      fee:      parseFloat($('in_fee').value)      || 0,
+      tax:      parseFloat($('in_tax').value)      || 0,
+      margin:   parseFloat($('in_margin').value)   || 0,
+      price:    parseFloat($('in_price').value)    || 0,
+    };
+  }
+
+  function calcRecommended(cost, margin, fee, shipping, tax) {
+    const denom = 1 - (fee + tax + margin) / 100;
+    if (denom <= 0) return null;
+    const price = (cost + shipping) / denom;
+    const feeAmt = price * fee / 100;
+    const taxAmt = price * tax / 100;
+    const profit = price - cost - shipping - feeAmt - taxAmt;
+    const realMargin = price > 0 ? (profit / price * 100) : 0;
+    const markup = (cost + shipping) > 0 ? (profit / (cost + shipping) * 100) : 0;
+    return { price, feeAmt, taxAmt, profit, realMargin, markup };
+  }
+
+  function calcAnalyze(cost, price, fee, shipping, tax) {
+    const feeAmt = price * fee / 100;
+    const taxAmt = price * tax / 100;
+    const profit = price - cost - shipping - feeAmt - taxAmt;
+    const realMargin = price > 0 ? (profit / price * 100) : 0;
+    const markup = (cost + shipping) > 0 ? (profit / (cost + shipping) * 100) : 0;
+    return { feeAmt, taxAmt, profit, realMargin, markup };
+  }
+
+  function update() {
+    const i = readInputs();
+
+    const a = calcRecommended(i.cost, i.margin, i.fee, i.shipping, i.tax);
+    if (a) {
+      $('out_price').textContent  = fmt(a.price) + " RSD";
+      $('out_profit').textContent = fmt(a.profit) + " RSD";
+      $('out_margin').textContent = fmt(a.realMargin) + " %";
+      $('out_markup').textContent = fmt(a.markup) + " %";
+      $('out_cost').textContent   = fmt(i.cost) + " RSD";
+      $('out_ship').textContent   = fmt(i.shipping) + " RSD";
+      $('out_fee').textContent    = fmt(a.feeAmt) + " RSD";
+      $('out_tax').textContent    = fmt(a.taxAmt) + " RSD";
+
+      const applyInput = $('apply_price');
+      if (applyInput) applyInput.value = a.price.toFixed(2);
+    } else {
+      $('out_price').textContent = "—";
+    }
+
+    const b = calcAnalyze(i.cost, i.price, i.fee, i.shipping, i.tax);
+    $('out2_profit').textContent = fmt(b.profit) + " RSD";
+    $('out2_margin').textContent = fmt(b.realMargin) + " %";
+    $('out2_markup').textContent = fmt(b.markup) + " %";
+    $('out2_cost').textContent   = fmt(i.cost) + " RSD";
+    $('out2_ship').textContent   = fmt(i.shipping) + " RSD";
+    $('out2_fee').textContent    = fmt(b.feeAmt) + " RSD";
+    $('out2_tax').textContent    = fmt(b.taxAmt) + " RSD";
+
+    const h = {
+      cost:   $('h_cost'),
+      ship:   $('h_ship'),
+      fee:    $('h_fee'),
+      tax:    $('h_tax'),
+      margin: $('h_margin'),
+    };
+    if (h.cost) {
+      h.cost.value   = i.cost;
+      h.ship.value   = i.shipping;
+      h.fee.value    = i.fee;
+      h.tax.value    = i.tax;
+      h.margin.value = i.margin;
+    }
+  }
+
+  ['in_cost','in_shipping','in_fee','in_tax','in_margin','in_price'].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener('input', update);
+  });
+
+  document.querySelectorAll('.chip-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $('in_fee').value = btn.dataset.fee;
+      if (btn.dataset.tax) $('in_tax').value = btn.dataset.tax;
+      update();
+    });
+  });
+
+  update();
+})();
+</script>
+{% endblock %}

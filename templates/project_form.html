@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ t("edit_project") if p else t("new_project") }} — MicroStock{% endblock %}
+{% block topbar_title %}📁 {{ t("edit_project") if p else t("new_project") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>{{ "✏️ " + t("edit_project") if p else "➕ " + t("new_project") }}</h1>
+  <a href="/projects" class="btn btn--secondary">← {{ t("back") }}</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none;">
+      <div class="form-row">
+        <label>{{ t("project_code") }}</label>
+        <input name="code" value="{{ p.code if p else '' }}" required placeholder="PRJ-001">
+      </div>
+      <div class="form-row">
+        <label>{{ t("project_name") }}</label>
+        <input name="name" value="{{ p.name if p else '' }}" required>
+      </div>
+      <div class="form-row">
+        <label>{{ t("client") }}</label>
+        <input name="client" value="{{ p.client if p else '' }}">
+      </div>
+      <div class="form-row">
+        <label>{{ t("contract_value_rsd") }}</label>
+        <input name="contract_value" type="number" step="0.01" value="{{ p.contract_value if p else 0 }}">
+      </div>
+      <div class="form-row">
+        <label>{{ t("start_date") }}</label>
+        <input name="start_date" type="date" value="{{ p.start_date if p and p.start_date else '' }}">
+      </div>
+      <div class="form-row">
+        <label>{{ t("deadline") }}</label>
+        <input name="deadline" type="date" value="{{ p.deadline if p and p.deadline else '' }}">
+      </div>
+      {% if p %}
+      <div class="form-row">
+        <label>{{ t("status") }}</label>
+        <select name="status">
+          {% for s in ['active','done','cancelled'] %}
+            <option value="{{ s }}" {% if p.status==s %}selected{% endif %}>{{ t("status_" ~ s) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+    </div>
+    <div class="form-row">
+      <label>{{ t("notes") }}</label>
+      <input name="notes" value="{{ p.notes if p else '' }}">
+    </div>
+    <div class="btn-row">
+      <button type="submit" class="btn btn--primary">💾 {{ t("save") }}</button>
+      <a href="/projects" class="btn btn--secondary">{{ t("cancel") }}</a>
+    </div>
+  </div>
+</form>
+
+{% endblock %}

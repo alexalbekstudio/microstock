@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ t("presets_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}⚙️ {{ t("presets_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>⚙️ {{ t("presets_title") }}</h1>
+  <a href="{{ url_for('pricing_view') }}" class="btn btn--secondary">← {{ t("back") }}</a>
+</div>
+
+<p class="muted">{{ t("presets_desc") }}</p>
+
+{# ============ DODAVANJE ============ #}
+<div class="card">
+  <h3>➕ {{ t("new_preset") }}</h3>
+  <form method="post" action="{{ url_for('pricing_preset_new') }}" class="inline-form">
+    <input name="name" placeholder="{{ t('preset_name') }}" required style="flex:2">
+    <input name="fee_pct" type="number" step="0.1" placeholder="{{ t('preset_fee') }}" value="0">
+    <input name="tax_pct" type="number" step="0.1" placeholder="{{ t('preset_tax') }}" value="0">
+    <button type="submit" class="btn btn--primary">{{ t("add") }}</button>
+  </form>
+</div>
+
+{# ============ LISTA ============ #}
+{% if presets %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>{{ t("name") }}</th><th class="num">{{ t("preset_fee") }}</th><th class="num">{{ t("preset_tax") }}</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for p in presets %}
+      <tr>
+        <td>
+          <form method="post" action="{{ url_for('pricing_preset_edit', preset_id=p.id) }}"
+                class="inline-form" style="margin:0">
+            <input name="name" value="{{ p.name }}" required style="flex:2; min-width:120px">
+        </td>
+        <td>
+            <input name="fee_pct" type="number" step="0.1" value="{{ p.fee_pct }}" style="width:90px">
+        </td>
+        <td>
+            <input name="tax_pct" type="number" step="0.1" value="{{ p.tax_pct }}" style="width:90px">
+        </td>
+        <td style="white-space:nowrap">
+            <button type="submit" class="btn btn--secondary btn--sm">💾</button>
+          </form>
+          <form method="post" action="{{ url_for('pricing_preset_delete', preset_id=p.id) }}"
+                style="display:inline"
+                onsubmit="return confirm('{{ t('delete_preset_confirm') }} {{ p.name }}?')">
+            <button type="submit" class="btn btn--danger btn--sm">🗑️</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card card--info"><p>{{ t("no_presets") }}</p></div>
+{% endif %}
+
+{% endblock %}

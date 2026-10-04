@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}{{ t("bulk_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}📊 {{ t("bulk_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>📊 {{ t("bulk_title") }}</h1>
+  <a href="{{ url_for('pricing_view') }}" class="btn btn--secondary">← {{ t("back") }}</a>
+</div>
+
+<p class="muted">{{ t("bulk_desc") }}</p>
+
+{# ============ FORMA ============ #}
+<form method="post">
+  <div class="card">
+    <h3>{{ t("bulk_params") }}</h3>
+    <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none;">
+      <div class="form-row">
+        <label>{{ t("desired_margin") }}</label>
+        <input name="margin_pct" type="number" step="0.1"
+               value="{{ params.margin_pct }}" min="0" max="99">
+      </div>
+      <div class="form-row">
+        <label>{{ t("in_fee") }}</label>
+        <input id="bulk_fee" name="fee_pct" type="number" step="0.1"
+               value="{{ params.fee_pct }}" min="0" max="99">
+      </div>
+      <div class="form-row">
+        <label>{{ t("in_tax") }}</label>
+        <input id="bulk_tax" name="tax_pct" type="number" step="0.1"
+               value="{{ params.tax_pct }}" min="0" max="99">
+      </div>
+      <div class="form-row">
+        <label>{{ t("shipping_label") }} (RSD)</label>
+        <input name="shipping" type="number" step="0.01"
+               value="{{ params.shipping }}" min="0">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="checkbox-label">
+        <input type="checkbox" name="only_low" {% if params.only_low %}checked{% endif %}>
+        {{ t("bulk_only_low") }}
+      </label>
+    </div>
+
+    <div class="btn-row">
+      <button type="submit" class="btn btn--primary">📊 {{ t("bulk_calculate") }}</button>
+      {% if rows %}
+        <button type="submit" formaction="{{ url_for('pricing_bulk_apply') }}"
+                class="btn btn--primary"
+                onclick="return confirm('{{ t('bulk_apply_confirm') }}')">
+          ✅ {{ t("bulk_apply_selected") }}
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ============ PRESETI ============ #}
+  <div class="card card--info">
+    <h3>💡 {{ t("presets_title") }}</h3>
+    <div class="chips">
+      {% for p in presets %}
+        <button type="button" class="chip chip-btn"
+                data-fee="{{ p.fee_pct }}" data-tax="{{ p.tax_pct }}"
+                onclick="document.getElementById('bulk_fee').value='{{ p.fee_pct }}';
+                         document.getElementById('bulk_tax').value='{{ p.tax_pct }}';">
+          {{ p.name }} {{ p.fee_pct }}%
+          {% if p.tax_pct %} + PDV {{ p.tax_pct }}%{% endif %}
+        </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ============ REZULTAT ============ #}
+  {% if rows %}
+  <h2>{{ t("bulk_result") }} ({{ rows|length }} {{ t("bulk_products") }})</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:40px"><input type="checkbox" id="check_all"></th>
+          <th>{{ t("sku") }}</th>
+          <th>{{ t("col_product") }}</th>
+          <th class="num">{{ t("cost_label") }}</th>
+          <th class="num">{{ t("col_current") }}</th>
+          <th class="num">{{ t("col_recommended") }}</th>
+          <th class="num">{{ t("col_diff") }}</th>
+          <th class="num">{{ t("profit_label") }}</th>
+          <th class="num">{{ t("kpi_margin") }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>
+            {% if r.recommended %}
+              <input type="checkbox" name="apply_product_id[]"
+                     value="{{ r.product.id }}" checked
+                     data-price="{{ r.recommended }}">
+              <input type="hidden" name="apply_new_price[]"
+                     value="{{ r.recommended }}" id="price_{{ r.product.id }}">
+            {% else %}
+              <span title="{{ r.error }}" class="text-danger">⚠️</span>
+            {% endif %}
+          </td>
+          <td><code>{{ r.product.sku }}</code></td>
+          <td>{{ r.product.name }}</td>
+          <td class="num">{{ display_money(r.product.cost or 0) }}</td>
+          <td class="num">{{ display_money(r.current_price) }}</td>
+          <td class="num">
+            {% if r.recommended %}
+              <b>{{ display_money(r.recommended) }}</b>
+            {% else %}
+              <span class="text-danger">—</span>
+            {% endif %}
+          </td>
+          <td class="num {{ 'text-success' if r.diff > 0 else ('text-danger' if r.diff < 0 else '') }}">
+            {% if r.recommended %}
+              {{ display_money(r.diff) }}
+            {% else %}—{% endif %}
+          </td>
+          <td class="num">{{ display_money(r.profit) if r.recommended else "—" }}</td>
+          <td class="num">{{ "%.1f"|format(r.margin_pct) if r.recommended else "—" }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const checkAll = document.getElementById('check_all');
+  if (checkAll) {
+    checkAll.addEventListener('change', () => {
+      document.querySelectorAll('input[name="apply_product_id[]"]')
+        .forEach(cb => cb.checked = checkAll.checked);
+    });
+  }
+</script>
+{% endblock %}

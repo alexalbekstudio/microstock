@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ t("edit_order") }} #{{ order.id }} — MicroStock{% endblock %}
+{% block topbar_title %}🧾 {{ t("order") }} #{{ order.id }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>{{ t("edit_order") }} #{{ order.id }}</h1>
+  <div class="page-header__actions">
+    <a href="/orders" class="btn btn--secondary">← {{ t("back") }}</a>
+    <a href="/invoice/{{ order.id }}" class="btn btn--primary">🧾 {{ t("invoice") }}</a>
+  </div>
+</div>
+
+<form method="post" action="/orders/{{ order.id }}/edit">
+  <div class="card">
+    <h3>{{ t("order_data") }}</h3>
+    <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none;">
+      <div class="form-row">
+        <label>{{ t("col_customer") }}</label>
+        <input name="customer_name" value="{{ order.customer_name }}" required>
+      </div>
+      <div class="form-row">
+        <label>{{ t("col_channel") }}</label>
+        <select name="channel_id">
+          {% for c in channels %}
+            <option value="{{ c.id }}" {% if c.id==order.channel_id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <label>{{ t("status") }}</label>
+        <select name="status">
+          {% for s in ['new','paid','shipped','done','cancelled'] %}
+            <option value="{{ s }}" {% if order.status==s %}selected{% endif %}>{{ t("status_" ~ s) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <label>{{ t("shipping_method") }}</label>
+        <input name="shipping_method" value="{{ order.shipping_method or '' }}"
+               placeholder="{{ t('shipping_method_ph') }}">
+      </div>
+      <div class="form-row">
+        <label>{{ t("shipping_cost") }}</label>
+        <input name="shipping_cost" type="number" step="0.01" min="0"
+               value="{{ order.shipping_cost or 0 }}">
+      </div>
+    </div>
+    </div>
+    <div class="form-row">
+      <label>{{ t("note") }}</label>
+      <input name="note" value="{{ order.note or '' }}" placeholder="{{ t('note') }}">
+    </div>
+    {% if current_user.role in ('admin', 'manager') %}
+      <button type="submit" class="btn btn--primary">💾 {{ t("save") }}</button>
+    {% endif %}
+  </div>
+</form>
+
+<h2>{{ t("order_items") }}</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>{{ t("col_product") }}</th><th class="num">{{ t("col_qty") }}</th><th class="num">{{ t("col_price") }}</th><th class="num">{{ t("col_total") }}</th></tr>
+    </thead>
+    <tbody>
+      {% for i in items %}
+      <tr>
+        <td>{{ i.product_name }} <span class="muted small">({{ i.sku }})</span></td>
+        <td class="num">{{ i.qty }}</td>
+        <td class="num">{{ display_money(i.unit_price) }}</td>
+        <td class="num">{{ display_money(i.qty * i.unit_price) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

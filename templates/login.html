@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="{{ current_lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ t("login") }} — MicroStock</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-box">
+    <h1>📦 MicroStock</h1>
+    <p class="subtitle">{{ t("login_subtitle") }}</p>
+
+    {# ===== PREKIDAČ JEZIKA (za neulogovane) ===== #}
+    <div style="display:flex; gap:.5rem; justify-content:center; margin-bottom:1rem;">
+      <select class="topbar__select"
+              onchange="location.href='/set-language/' + this.value">
+        {% for lang in available_languages %}
+          <option value="{{ lang.code }}"
+                  {% if lang.code == current_lang %}selected{% endif %}>
+            {{ lang.code | upper }}
+          </option>
+        {% endfor %}
+      </select>
+      <select class="topbar__select"
+              onchange="location.href='/set-currency/' + this.value">
+        {% for code, cfg in available_currencies.items() %}
+          <option value="{{ code }}"
+                  {% if code == current_currency %}selected{% endif %}>
+            {{ cfg.symbol }} {{ code }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, m in msgs %}
+        <div class="flash-{{ cat }}">{{ m }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="post">
+      <label>{{ t("email") }}
+        <input name="email" type="email" required autofocus
+               placeholder="admin@microstock.local">
+      </label>
+      <label>{{ t("password") }}
+        <input name="password" type="password" required
+               placeholder="••••••">
+      </label>
+      <button type="submit">{{ t("login_button") }}</button>
+    </form>
+
+    <p class="hint">
+      {{ t("login_first_time") }}<br>
+      Email: <code>admin@microstock.local</code><br>
+      {{ t("password") }}: <code>admin123</code>
+    </p>
+  </div>
+</body>
+</html>

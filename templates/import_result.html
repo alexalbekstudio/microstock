@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ t("import_result_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}📥 {{ t("import_result_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>✅ {{ t("import_result_title") }}</h1>
+  <div class="page-header__actions">
+    <a href="{{ url_for('orders') }}" class="btn btn--primary">{{ t("import_view_orders") }}</a>
+    <a href="{{ url_for('import_view') }}" class="btn btn--secondary">{{ t("import_new") }}</a>
+    {% if current_user.role == "admin" %}
+      <a href="{{ url_for('import_logs') }}" class="btn btn--secondary">{{ t("import_history") }}</a>
+    {% endif %}
+  </div>
+</div>
+
+<p class="muted">{{ t("import_file_label") }}: <strong>{{ filename }}</strong></p>
+
+<div class="kpi-strip">
+  <div class="kpi">
+    <div class="kpi__label">{{ t("import_total") }}</div>
+    <div class="kpi__value">{{ total }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+  <div class="kpi kpi--good">
+    <div class="kpi__label">{{ t("import_imported") }}</div>
+    <div class="kpi__value">{{ results.imported }}</div>
+    <div class="kpi__meta">{{ t("import_orders_count") }}</div>
+  </div>
+  <div class="kpi kpi--warn">
+    <div class="kpi__label">{{ t("import_skipped") }}</div>
+    <div class="kpi__value">{{ results.skipped }}</div>
+    <div class="kpi__meta">{{ t("import_duplicates") }}</div>
+  </div>
+  <div class="kpi {{ 'kpi--bad' if results.failed > 0 else '' }}">
+    <div class="kpi__label">{{ t("import_errors_count") }}</div>
+    <div class="kpi__value">{{ results.failed }}</div>
+    <div class="kpi__meta">&nbsp;</div>
+  </div>
+</div>
+
+{% if results.created_products %}
+<div class="card">
+  <h3>🆕 {{ t("import_new_products") }} ({{ results.created_products|length }})</h3>
+  <div class="chips">
+    {% for sku in results.created_products %}
+      <span class="chip">{{ sku }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if results.errors %}
+<div class="card card--danger">
+  <h3>⚠️ {{ t("import_error_count_label") }} ({{ results.errors|length }})</h3>
+  <ul class="errors">
+    {% for e in results.errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% endblock %}

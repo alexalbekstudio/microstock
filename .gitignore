@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtualno okruženje
+venv/
+env/
+ENV/
+.venv
+
+# Baza (ne šalje se na GitHub)
+*.db
+*.sqlite
+*.sqlite3
+inventory.db
+
+# Env varijable (tajne!)
+.env
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logovi
+*.log
+
+backups/
+
+*.pyc

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ t("import_logs_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}📋 {{ t("import_logs_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>📋 {{ t("import_logs_title") }}</h1>
+  <a href="{{ url_for('import_view') }}" class="btn btn--primary">{{ t("import_logs_new") }}</a>
+</div>
+
+{% if not logs %}
+  <div class="card card--info">
+    <p>{{ t("import_logs_empty") }}</p>
+    <a href="{{ url_for('import_view') }}" class="btn btn--primary">{{ t("import_logs_first") }}</a>
+  </div>
+{% else %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("date") }}</th><th>{{ t("import_col_user") }}</th><th>{{ t("import_col_source") }}</th><th>{{ t("import_col_file") }}</th>
+        <th class="num">{{ t("import_col_total") }}</th><th class="num">{{ t("import_col_imported") }}</th>
+        <th class="num">{{ t("import_col_skipped") }}</th><th class="num">{{ t("import_col_errors") }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in logs %}
+      <tr>
+        <td class="muted small">
+          {{ l.created_at|string|truncate(19, True, "") if l.created_at else "—" }}
+        </td>
+        <td>
+          {% if l.user_name %}
+            {{ l.user_name }}
+          {% elif l.user_email %}
+            <span class="muted small">{{ l.user_email }}</span>
+          {% else %}
+            <span class="muted">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if l.source %}<span class="badge badge-source">{{ l.source }}</span>{% else %}—{% endif %}
+        </td>
+        <td class="muted small">{{ l.filename or "—" }}</td>
+        <td class="num">{{ l.rows_total or 0 }}</td>
+        <td class="num text-success"><strong>{{ l.rows_imported or 0 }}</strong></td>
+        <td class="num text-warn">{{ l.rows_skipped or 0 }}</td>
+        <td class="num">
+          {% if l.rows_failed and l.rows_failed > 0 %}
+            <span class="text-danger"><strong>{{ l.rows_failed }}</strong></span>
+          {% else %}
+            0
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endblock %}
