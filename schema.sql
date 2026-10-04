@@ -215,3 +215,45 @@ CREATE TABLE IF NOT EXISTS exchange_rates (
     fetched_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(source_currency, target_currency, rate_date)
 );
+
+-- ============================================
+-- PRICING (Alat #4 — Kalkulator cena)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS pricing_history (
+    id            SERIAL PRIMARY KEY,
+    user_id       INTEGER REFERENCES users(id),
+    product_id    INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    product_name  TEXT,
+    mode          TEXT,
+    cost          NUMERIC(12,2) DEFAULT 0,
+    shipping      NUMERIC(12,2) DEFAULT 0,
+    fee_pct       NUMERIC(6,2)  DEFAULT 0,
+    tax_pct       NUMERIC(6,2)  DEFAULT 0,
+    margin_pct    NUMERIC(6,2)  DEFAULT 0,
+    price         NUMERIC(12,2) DEFAULT 0,
+    profit        NUMERIC(12,2) DEFAULT 0,
+    markup_pct    NUMERIC(8,2)  DEFAULT 0,
+    applied       INTEGER DEFAULT 0,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pricing_history_user ON pricing_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_pricing_history_prod ON pricing_history(product_id);
+
+
+CREATE TABLE IF NOT EXISTS channel_presets (
+    id         SERIAL PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE,
+    fee_pct    NUMERIC(6,2) NOT NULL DEFAULT 0,
+    tax_pct    NUMERIC(6,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO channel_presets (name, fee_pct, tax_pct) VALUES
+    ('Instagram', 0.0, 0),
+    ('WhatsApp',  0.0, 0),
+    ('Etsy',      6.5, 0),
+    ('Faire',    15.0, 0),
+    ('Lično',     0.0, 0)
+ON CONFLICT (name) DO NOTHING;
