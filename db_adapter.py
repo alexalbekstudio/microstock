@@ -50,10 +50,94 @@ def get_conn():
 # ==================== PREVODILAC UPITA ====================
 
 def adapt_query(sql):
-    """SQLite koristi ? za parametre, PostgreSQL %s."""
-    if USE_POSTGRES:
-        return sql.replace("?", "%s")
+    """
+    SQLite -> PostgreSQL prevodilac upita.
+    Podržava:
+    - ? -> %s
+    - datetime('now') -> CURRENT_TIMESTAMP
+    - date('now') -> CURRENT_DATE
+    - date('now', '+N days') -> (CURRENT_DATE + INTERVAL 'N days')
+    - date('now', ?) sa parametrom '-N days' -> rešava se preko regex-a u adapt_query_params
+    """
+    if not USE_POSTGRES:
+        return sql
+
+    import re
+
+    # 1. Parametri
+    sql = sql.replace("?", "%s")
+
+    # 2. datetime('now') -> CURRENT_TIMESTAMP
+    sql = sql.replace("datetime('now')", "CURRENT_TIMESTAMP")
+
+    # 3. date('now') bez parametara -> CURRENT_DATE
+    sql = re.sub(r"date\('now'\)", "CURRENT_DATE", sql)
+
+    # 4. date('now', 'literal') sa literalnim stringom
+    def repl_date_offset(m):
+        sign = m.group(1)
+        num = m.group(2)
+        unit = m.group(3)
+        if sign == "-":
+            return f"(CURRENT_DATE - INTERVAL '{num} {unit}')"
+        else:
+            return f"(CURRENT_DATE + INTERVAL '{num} {unit}')"
+
+    sql = re.sub(
+        r"date\('now',\s*'([+-])(\d+)\s+(days?|months?|years?)'\)",
+        repl_date_offset,
+        sql,
+        flags=re.IGNORECASE
+    )
+
     return sql
+
+
+def adapt_query_and_params(sql, params):
+    """
+    Prevodi SQL i PARAMETRE zajedno.
+    Specijalno: date('now', %s) + params ('-30 days',)
+    -> SQL: order_date >= (CURRENT_DATE - INTERVAL '30 days')
+    -> params: bez tog parametra
+    """
+    if not USE_POSTGRES:
+        return sql, params
+
+    import re
+
+    # Prvo standardni prevod
+    sql = adapt_query(sql)
+
+    # Specijalno: date('now', %s) — parametrizovano
+    # Pattern: date('now', %s)
+    params = list(params or [])
+
+    def extract_and_replace(match):
+        # Uzimamo sledeći parametar iz liste
+        if not params:
+            return match.group(0)  # nema parametra, ostavi kako je
+        val = params.pop(0)  # uzmi prvi parametar
+        # val je npr. '-30 days' ili '+14 days'
+        val = str(val).strip()
+        m = re.match(r"([+-]?)\s*(\d+)\s+(days?|months?|years?)", val, re.IGNORECASE)
+        if not m:
+            return match.group(0)  # ne možemo parsirati, ostavi
+        sign = m.group(1) or "+"
+        num = m.group(2)
+        unit = m.group(3)
+        if sign == "-":
+            return f"(CURRENT_DATE - INTERVAL '{num} {unit}')"
+        else:
+            return f"(CURRENT_DATE + INTERVAL '{num} {unit}')"
+
+    # Zameni date('now', %s) i pokupi odgovarajući parametar
+    sql = re.sub(
+        r"date\('now',\s*%s\)",
+        extract_and_replace,
+        sql
+    )
+
+    return sql, tuple(params)
 
 
 def adapt_schema(schema_sql):
@@ -127,14 +211,15 @@ class ConnectionWrapper:
         self._pg = USE_POSTGRES
 
     def execute(self, sql, params=None):
-        sql = adapt_query(sql)
         if params is None:
             params = ()
         if self._pg:
+            sql, params = adapt_query_and_params(sql, params)
             cur = self._conn.cursor()
             cur.execute(sql, params)
             return cur
         else:
+            sql = adapt_query(sql)
             return self._conn.execute(sql, params)
 
     def executescript(self, sql):
