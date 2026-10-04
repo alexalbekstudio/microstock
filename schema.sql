@@ -76,7 +76,7 @@ ON CONFLICT (name) DO NOTHING;
 CREATE OR REPLACE VIEW v_order_profit AS
 SELECT
     o.id                AS order_id,
-    o.created_at        AS order_date,
+    o.created_at::timestamp AS order_date,
     o.status            AS status,
     c.id                AS channel_id,
     c.name              AS channel_name,

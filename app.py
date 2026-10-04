@@ -1125,6 +1125,12 @@ def money_filter(value, decimals=0):
 if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
     init_db()
     ensure_admin_exists()
+    # Osveži VIEW-ove (DROP + CREATE) da bi PostgreSQL pokupio ispravne tipove kolona
+    try:
+        from refresh_views import refresh_views
+        refresh_views()
+    except Exception as e:
+        print(f"⚠️  refresh_views preskočen: {e}")
 
 # ==================== IMPORT IZ CSV ====================
 
