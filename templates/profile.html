@@ -26,6 +26,10 @@
         <input name="name" placeholder="{{ t('user_name') }}" value="{{ current_user.name or '' }}">
       </div>
       <div class="form-row">
+        <label>{{ t("email") if t("email") != "email" else "Email" }}</label>
+        <input name="email" type="email" placeholder="email@example.com" value="{{ current_user.email or '' }}" required>
+      </div>
+      <div class="form-row">
         <label>{{ t("current_password") }}</label>
         <input name="current_password" type="password" placeholder="••••••" required>
       </div>

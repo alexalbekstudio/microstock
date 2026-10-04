@@ -197,9 +197,10 @@ def profile():
         current_pw = request.form.get("current_password", "")
         new_pw = request.form.get("new_password", "")
         new_name = request.form.get("name", "").strip()
+        new_email = request.form.get("email", "").strip().lower()
 
         conn = connect()
-        row = conn.execute("SELECT password_hash FROM users WHERE id=?",
+        row = conn.execute("SELECT password_hash FROM users WHERE id=%s",
                            (current_user.id,)).fetchone()
 
         if not check_password_hash(row["password_hash"], current_pw):
@@ -207,17 +208,30 @@ def profile():
             flash("Trenutna šifra nije tačna.", "err")
             return redirect(url_for("auth.profile"))
 
+        # Promena email-a (ako je zadat i drugačiji)
+        if new_email and new_email != current_user.email:
+            existing = conn.execute(
+                "SELECT id FROM users WHERE email=%s AND id!=%s",
+                (new_email, current_user.id)
+            ).fetchone()
+            if existing:
+                conn.close()
+                flash("Taj email je već u upotrebi.", "err")
+                return redirect(url_for("auth.profile"))
+            conn.execute("UPDATE users SET email=%s WHERE id=%s",
+                         (new_email, current_user.id))
+
         if new_pw:
             if len(new_pw) < 6:
                 conn.close()
                 flash("Nova šifra mora imati bar 6 znakova.", "err")
                 return redirect(url_for("auth.profile"))
             new_hash = generate_password_hash(new_pw)
-            conn.execute("UPDATE users SET password_hash=? WHERE id=%s",
+            conn.execute("UPDATE users SET password_hash=%s WHERE id=%s",
                          (new_hash, current_user.id))
 
         if new_name:
-            conn.execute("UPDATE users SET name=? WHERE id=?",
+            conn.execute("UPDATE users SET name=%s WHERE id=%s",
                          (new_name, current_user.id))
 
         conn.commit()
