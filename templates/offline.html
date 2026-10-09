@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="{{ current_lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ t("offline_title") }} — MicroStock</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo-icon.png') }}">
+</head>
+<body class="login-body">
+  <div class="login-box" style="text-align:center">
+
+    <div class="login-brand">
+      <img src="{{ url_for('static', filename='img/logo-icon.png') }}"
+           alt="ALEXANDAR" class="login-brand__icon">
+      <img src="{{ url_for('static', filename='img/logo-wordmark.png') }}"
+           alt="ALEXANDAR" class="login-brand__wordmark">
+    </div>
+
+    <div class="login-sep"></div>
+
+    <h1 class="login-title">📡 {{ t("offline_title") }}</h1>
+
+    <p class="muted" style="margin:1rem 0">
+      {{ t("offline_desc") }}
+    </p>
+
+    <button onclick="window.location.reload()" class="login-submit">
+      🔄 {{ t("offline_retry") }}
+    </button>
+
+  </div>
+
+  <footer class="login-footer">
+    <a href="mailto:alexalbekstudio.design@gmail.com">
+      alexalbekstudio.design@gmail.com
+    </a>
+    <div>© 2026 ALEXANDAR Studio. {{ t("all_rights_reserved") }}</div>
+  </footer>
+</body>
+</html>

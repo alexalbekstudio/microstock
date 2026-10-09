@@ -569,4 +569,9 @@ TRANSLATIONS = {
     "pdf_export": "PDF report",
     "pdf_export_analytics": "Analytics PDF report",
     "pdf_export_project": "Project PDF report",
+
+        # PWA / Offline
+    "offline_title": "No internet connection",
+    "offline_desc": "Looks like you're offline. Check your internet connection and try again.",
+    "offline_retry": "Try again",
 }

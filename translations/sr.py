@@ -570,4 +570,9 @@ TRANSLATIONS = {
     "pdf_export": "PDF izveštaj",
     "pdf_export_analytics": "PDF izveštaj analitike",
     "pdf_export_project": "PDF izveštaj projekta",
+
+        # PWA / Offline
+    "offline_title": "Nema internet veze",
+    "offline_desc": "Izgleda da si offline. Proveri internet konekciju i pokušaj ponovo.",
+    "offline_retry": "Pokušaj ponovo",
 }

@@ -726,6 +726,29 @@ def _resolve_items(items_in):
 def api_low_stock():
     return jsonify([dict(r) for r in models.low_stock_products()])
 
+# ==================== PWA ====================
+
+@app.route("/offline")
+def offline():
+    """Offline fallback stranica."""
+    return render_template("offline.html"), 200
+
+
+@app.route("/sw.js")
+def service_worker():
+    """Servira Service Worker iz root-a (scope /)."""
+    from flask import send_from_directory
+    response = send_from_directory("static", "sw.js", mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+@app.route("/manifest.json")
+def manifest():
+    """Servira manifest iz root-a."""
+    from flask import send_from_directory
+    return send_from_directory("static", "manifest.json", mimetype="application/manifest+json")
 
 # ==================== ANALITIKA (ALAT #2) ====================
 
