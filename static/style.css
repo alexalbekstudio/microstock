@@ -1429,3 +1429,77 @@ input[type="checkbox"] {
 /* Kapital KPI — zlatna akcentna linija */
 .kpi--capital::before { background: #d4af37; }   /* zlatna, u skladu sa logom */
 .kpi--capital .kpi__value { color: #b8860b; }
+
+/* ============================================================
+   GLOBALNA PRETRAGA (Ctrl+K)
+   ============================================================ */
+
+.search-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+}
+.search-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15,23,42,.6);
+  backdrop-filter: blur(2px);
+}
+.search-modal__box {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 560px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+}
+#search-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 1.25rem;
+  font-size: 1.05rem;
+  outline: none;
+  border-radius: 0;
+  background: transparent;
+}
+.search-results {
+  overflow-y: auto;
+  padding: .5rem 0;
+}
+.search-group {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-mute);
+  font-weight: 700;
+  padding: .65rem 1.25rem .25rem;
+}
+.search-item {
+  display: block;
+  padding: .5rem 1.25rem;
+  color: var(--text);
+  text-decoration: none;
+  font-size: .9rem;
+  border-left: 3px solid transparent;
+  transition: background .1s, border-color .1s;
+}
+.search-item:hover {
+  background: var(--primary-soft);
+  border-left-color: var(--primary);
+  text-decoration: none;
+}
+.search-empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: .9rem;
+}

@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}MicroStock{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo-icon.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/logo-icon.png') }}">
 <script>
   window.CURRENCY_RATES = {
     RSD: 1,
@@ -202,7 +204,16 @@
     </main>
   </div>
 </div>
-
+{# ============ GLOBALNA PRETRAGA (Ctrl+K) ============ #}
+<div id="search-modal" class="search-modal" style="display:none">
+  <div class="search-modal__backdrop" onclick="closeSearch()"></div>
+  <div class="search-modal__box">
+    <input type="text" id="search-input"
+           placeholder="{{ t('search_placeholder_global') }}"
+           autocomplete="off">
+    <div id="search-results" class="search-results"></div>
+  </div>
+</div>
 <script>
   // Mobile sidebar toggle
   const burger  = document.getElementById('burger');
@@ -215,6 +226,82 @@
   }
   if (burger) burger.addEventListener('click', () => toggleSidebar(!sidebar.classList.contains('open')));
   if (overlay) overlay.addEventListener('click', () => toggleSidebar(false));
+
+  // ============ GLOBALNA PRETRAGA (Ctrl+K) ============
+  const searchModal = document.getElementById('search-modal');
+  const searchInput = document.getElementById('search-input');
+  const searchResults = document.getElementById('search-results');
+
+  function openSearch() {
+    if (!searchModal) return;
+    searchModal.style.display = 'flex';
+    searchInput.value = '';
+    searchResults.innerHTML = '';
+    setTimeout(() => searchInput.focus(), 50);
+  }
+
+  function closeSearch() {
+    if (searchModal) searchModal.style.display = 'none';
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      openSearch();
+    }
+    if (e.key === 'Escape') closeSearch();
+  });
+
+  let searchTimer = null;
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const q = searchInput.value.trim();
+      if (q.length < 2) {
+        searchResults.innerHTML = '';
+        return;
+      }
+      searchTimer = setTimeout(async () => {
+        try {
+          const r = await fetch('/api/search?q=' + encodeURIComponent(q));
+          const data = await r.json();
+          renderSearchResults(data);
+        } catch (err) {
+          searchResults.innerHTML = '<div class="search-empty">Greška.</div>';
+        }
+      }, 200);
+    });
+  }
+
+  function renderSearchResults(data) {
+    let html = '';
+    if (data.products && data.products.length) {
+      html += '<div class="search-group">📦 Proizvodi</div>';
+      data.products.forEach(p => {
+        html += `<a class="search-item" href="/products/${p.id}/edit">
+          <span><b>${p.sku}</b> — ${p.name}</span>
+        </a>`;
+      });
+    }
+    if (data.orders && data.orders.length) {
+      html += '<div class="search-group">🧾 Narudžbine</div>';
+      data.orders.forEach(o => {
+        html += `<a class="search-item" href="/orders/${o.id}">
+          <span>#${o.id} — ${o.customer_name}</span>
+        </a>`;
+      });
+    }
+    if (data.projects && data.projects.length) {
+      html += '<div class="search-group">📁 Projekti</div>';
+      data.projects.forEach(p => {
+        html += `<a class="search-item" href="/projects/${p.id}">
+          <span><b>${p.code || ''}</b> — ${p.name}</span>
+        </a>`;
+      });
+    }
+    if (!html) html = '<div class="search-empty">Nema rezultata.</div>';
+    searchResults.innerHTML = html;
+  }
 </script>
 
 <script src="{{ url_for('static', filename='app.js') }}"></script>

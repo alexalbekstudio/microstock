@@ -552,4 +552,17 @@ TRANSLATIONS = {
     "currency_rates_how_step1": "Every day at 08:05 scheduler automatically fetches NBS rate.",
     "currency_rates_how_step2": "If NBS fails — last known rate from DB is used.",
     "currency_rates_how_step3": "If no rate exists — display falls back to RSD.",
+
+    "search_placeholder_global": "Search products, orders, projects...",
+    "search_open_hint": "Ctrl+K to search",
+
+        # Forgot password
+    "forgot_password": "Forgot password",
+    "forgot_password_link": "Forgot your password?",
+    "forgot_password_hint": "Enter your email — we'll send you a reset link.",
+    "forgot_password_send": "Send reset link",
+    "reset_password": "New password",
+    "reset_password_button": "Set new password",
+    "new_password_confirm": "Confirm new password",
+    "back_to_login": "Back to login",
 }

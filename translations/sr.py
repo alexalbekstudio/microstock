@@ -553,4 +553,17 @@ TRANSLATIONS = {
     "currency_rates_how_step1": "Svaki dan u 08:05 scheduler automatski povlači NBS kurs.",
     "currency_rates_how_step2": "Ako NBS padne — koristi se poslednji poznati kurs iz baze.",
     "currency_rates_how_step3": "Ako nema kursa — prikazuje se u RSD (fallback).",
+
+    "search_placeholder_global": "Pretraži proizvode, narudžbine, projekte...",
+    "search_open_hint": "Ctrl+K za pretragu",
+
+        # Zaboravljena šifra
+    "forgot_password": "Zaboravljena šifra",
+    "forgot_password_link": "Zaboravio si šifru?",
+    "forgot_password_hint": "Unesi svoj email — poslaćemo ti link za reset šifre.",
+    "forgot_password_send": "Pošalji link za reset",
+    "reset_password": "Nova šifra",
+    "reset_password_button": "Postavi novu šifru",
+    "new_password_confirm": "Potvrdi novu šifru",
+    "back_to_login": "Nazad na prijavu",
 }

@@ -240,3 +240,44 @@ def send_report_email(to_email, subject, html_body, pdf_bytes=None, pdf_filename
     except Exception as e:
         current_app.logger.error(f"REPORT greška: {e}")
         return False
+
+def send_password_reset(to_email, reset_url):
+    """
+    Šalje email sa linkom za reset šifre.
+    Vraća True/False.
+    """
+    subject = "🔐 MicroStock — Reset šifre"
+    body = f"""
+      <p>Zdravo,</p>
+      <p>Neko je zatražio reset šifre za tvoj MicroStock nalog.</p>
+      <p style="margin:24px 0">
+        <a href="{reset_url}"
+           style="background:#6366f1;color:#fff;padding:12px 24px;
+                  border-radius:6px;text-decoration:none;font-weight:600">
+          Postavi novu šifru
+        </a>
+      </p>
+      <p>Ili kopiraj ovaj link u browser:</p>
+      <p style="background:#f3f4f6;padding:8px 12px;border-radius:4px;
+                font-family:monospace;font-size:12px;word-break:break-all">
+        {reset_url}
+      </p>
+      <p><b>Link važi 1 sat.</b> Ako nisi ti zatražio reset — ignoriši ovaj email.</p>
+    """
+    return _send_to(to_email, subject, _wrap("Reset šifre", "#6366f1", body))
+
+
+def _send_to(to_email, subject, html):
+    """Kao _send, ali na proizvoljan email (ne ALERT_EMAIL)."""
+    try:
+        if not to_email:
+            return False
+        msg = Message(subject=subject, recipients=[to_email])
+        msg.html = html
+        msg.body = _html_to_text(html)
+        mail.send(msg)
+        current_app.logger.info(f"MAIL: poslato → {to_email} | {subject}")
+        return True
+    except Exception as e:
+        current_app.logger.error(f"MAIL greška: {e}")
+        return False

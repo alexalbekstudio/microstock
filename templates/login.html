@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ t("login") }} — MicroStock</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo-icon.png') }}">
 </head>
 <body class="login-body">
   <div class="login-box">
@@ -42,6 +43,10 @@
       </label>
       <button type="submit" class="login-submit">{{ t("login_button") }}</button>
     </form>
+
+    <p class="login-hint" style="margin-top:.75rem; padding-top:.75rem">
+      <a href="{{ url_for('forgot_password') }}">{{ t("forgot_password_link") }}</a>
+    </p>
 
     <p class="login-hint">
       {{ t("login_first_time") }}<br>

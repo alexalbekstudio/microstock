@@ -71,6 +71,24 @@ def _run_migrations(conn):
             ('TikTok',  0.0)
         ON CONFLICT (name) DO NOTHING
         """,
+
+                # 5) password_resets (zaboravljena šifra)
+        """
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id          SERIAL PRIMARY KEY,
+            user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token       TEXT NOT NULL UNIQUE,
+            expires_at  TIMESTAMP NOT NULL,
+            used        INTEGER NOT NULL DEFAULT 0,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+
+        # 6) Index za password_resets
+        """
+        CREATE INDEX IF NOT EXISTS idx_password_resets_token
+        ON password_resets(token)
+        """,
     ]
 
     for sql in migrations:

@@ -8,6 +8,8 @@ import io
 import json
 import os
 
+from datetime import datetime
+
 from flask import (Flask, render_template, request, redirect, url_for,
                    jsonify, abort, Response, flash, send_file)
 from flask_login import login_required, current_user
@@ -117,6 +119,116 @@ def set_currency(cur):
 
     flash("Valuta promenjena.", "ok")
     return redirect(request.referrer or url_for("index"))
+
+# ==================== ZABORAVLJENA ŠIFRA ====================
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    """Forma za unos email-a → šalje link za reset."""
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+
+        # Uvek ista poruka — ne otkrivamo da li email postoji
+        generic_msg = "Ako nalog postoji, poslali smo link za reset šifre na tvoj email."
+
+        if not email:
+            flash(generic_msg, "ok")
+            return redirect(url_for("auth.login"))
+
+        from db_adapter import connect
+        import secrets
+        from datetime import datetime, timedelta
+
+        conn = connect()
+        try:
+            user = conn.execute(
+                "SELECT id, email FROM users WHERE email=%s AND active=1",
+                (email,)
+            ).fetchone()
+
+            if user:
+                token = secrets.token_urlsafe(32)
+                expires = datetime.now() + timedelta(hours=1)
+
+                conn.execute("""
+                    INSERT INTO password_resets (user_id, token, expires_at)
+                    VALUES (%s, %s, %s)
+                """, (user["id"], token, expires))
+                conn.commit()
+
+                # Napravi URL
+                reset_url = url_for("reset_password", token=token, _external=True)
+
+                # Pošalji email
+                from mailer import send_password_reset
+                send_password_reset(user["email"], reset_url)
+        finally:
+            conn.close()
+
+        flash(generic_msg, "ok")
+        return redirect(url_for("auth.login"))
+
+    return render_template("forgot_password.html")
+
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    """Forma za novu šifru."""
+    from db_adapter import connect
+    from werkzeug.security import generate_password_hash
+
+    conn = connect()
+    try:
+        # Nađi validan token
+        row = conn.execute("""
+            SELECT pr.id AS reset_id, pr.user_id, pr.expires_at, pr.used,
+                   u.email
+            FROM password_resets pr
+            JOIN users u ON u.id = pr.user_id
+            WHERE pr.token = %s
+        """, (token,)).fetchone()
+
+        invalid = (
+            not row
+            or row["used"]
+            or row["expires_at"] < datetime.now()
+        )
+
+        if invalid:
+            flash("Link je istekao ili je već iskorišćen. Zatraži novi.", "err")
+            return redirect(url_for("forgot_password"))
+
+        if request.method == "POST":
+            new_pw = request.form.get("password", "")
+            new_pw2 = request.form.get("password2", "")
+
+            if len(new_pw) < 6:
+                flash("Šifra mora imati bar 6 znakova.", "err")
+                return render_template("reset_password.html", token=token)
+
+            if new_pw != new_pw2:
+                flash("Šifre se ne poklapaju.", "err")
+                return render_template("reset_password.html", token=token)
+
+            pw_hash = generate_password_hash(new_pw)
+
+            # Update šifre + markiraj token kao iskorišćen
+            conn.execute("UPDATE users SET password_hash=%s WHERE id=%s",
+                         (pw_hash, row["user_id"]))
+            conn.execute("UPDATE password_resets SET used=1 WHERE id=%s",
+                         (row["reset_id"],))
+            conn.commit()
+
+            flash("Šifra je promenjena. Možeš se prijaviti.", "ok")
+            return redirect(url_for("auth.login"))
+
+    finally:
+        conn.close()
+
+    return render_template("reset_password.html", token=token)
 
 # ==================== HELPER: role sets ====================
 
@@ -1405,6 +1517,45 @@ def import_confirm():
                            results=results,
                            filename=filename,
                            total=len(rows))
+
+@app.route("/api/search")
+@login_required
+@role_required(*ALL_ROLES)
+def api_search():
+    """Globalna pretraga: proizvodi, narudžbine, projekti."""
+    q = request.args.get("q", "").strip()
+    if len(q) < 2:
+        return jsonify({"products": [], "orders": [], "projects": []})
+
+    from db_adapter import connect
+    conn = connect()
+    try:
+        like = f"%{q}%"
+        products = conn.execute("""
+            SELECT id, sku, name, price FROM products
+            WHERE active=1 AND (name ILIKE %s OR sku ILIKE %s)
+            ORDER BY name LIMIT 5
+        """, (like, like)).fetchall()
+
+        orders = conn.execute("""
+            SELECT id, customer_name, status, external_id FROM orders
+            WHERE customer_name ILIKE %s OR external_id ILIKE %s
+            ORDER BY id DESC LIMIT 5
+        """, (like, like)).fetchall()
+
+        projects = conn.execute("""
+            SELECT id, code, name, client FROM projects
+            WHERE name ILIKE %s OR code ILIKE %s OR client ILIKE %s
+            ORDER BY id DESC LIMIT 5
+        """, (like, like, like)).fetchall()
+    finally:
+        conn.close()
+
+    return jsonify({
+        "products": [dict(r) for r in products],
+        "orders":   [dict(r) for r in orders],
+        "projects": [dict(r) for r in projects],
+    })
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
