@@ -8,7 +8,8 @@ Email notifikacije za MicroStock.
 import os
 from flask import current_app
 from flask_mail import Mail, Message
-
+import base64
+from pathlib import Path
 mail = Mail()
 
 
@@ -59,18 +60,38 @@ def _html_to_text(html):
 # ============================================================
 
 def _wrap(title, color, body_html):
+    """Email šablon sa logom u header-u (URL do javne slike)."""
+    import os
+    base_url = os.getenv("PUBLIC_URL", "https://microstock.onrender.com")
+    logo_url = f"{base_url}/static/img/logo-wordmark.png"
+
+    DARK = "#0f172a"   # tamna boja iz sidebar-a
+
     return f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;
                 border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
-      <div style="background:{color};color:#fff;padding:16px 20px">
-        <h2 style="margin:0;font-size:18px">MicroStock — {title}</h2>
+
+      <div style="background:{DARK};padding:24px 20px;text-align:center">
+        <img src="{logo_url}" alt="MicroStock"
+             style="max-width:180px;height:auto;display:block;margin:0 auto">
       </div>
+
+      <div style="background:{color};color:#fff;padding:12px 20px 16px;
+                  text-align:center;font-size:16px;font-weight:700">
+        MicroStock — {title}
+      </div>
+
       <div style="padding:20px;color:#111827;font-size:14px;line-height:1.6">
         {body_html}
       </div>
+
       <div style="background:#f9fafb;color:#6b7280;padding:12px 20px;
-                  font-size:12px;border-top:1px solid #e5e7eb">
-        Automatska poruka iz MicroStock. Ne odgovaraj na ovaj email.
+                  font-size:12px;border-top:1px solid #e5e7eb;text-align:center">
+        Automatska poruka iz MicroStock. Ne odgovaraj na ovaj email.<br>
+        <a href="mailto:alexalbekstudio.design@gmail.com"
+           style="color:#6366f1;text-decoration:none">
+          alexalbekstudio.design@gmail.com
+        </a>
       </div>
     </div>
     """

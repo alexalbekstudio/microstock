@@ -565,4 +565,8 @@ TRANSLATIONS = {
     "reset_password_button": "Set new password",
     "new_password_confirm": "Confirm new password",
     "back_to_login": "Back to login",
+
+    "pdf_export": "PDF report",
+    "pdf_export_analytics": "Analytics PDF report",
+    "pdf_export_project": "Project PDF report",
 }

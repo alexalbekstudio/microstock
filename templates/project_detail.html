@@ -13,6 +13,8 @@
     </div>
   </div>
   <div class="page-header__actions">
+    <a href="{{ url_for('project_pdf', pid=p.project_id) }}" class="btn btn--secondary">📄 PDF</a>
+
     {% if current_user.role in ('admin', 'manager') %}
       <a href="/projects/{{ p.project_id }}/edit" class="btn btn--secondary">✏️ {{ t("edit") }}</a>
       <form method="post" action="/projects/{{ p.project_id }}/delete" style="display:inline"

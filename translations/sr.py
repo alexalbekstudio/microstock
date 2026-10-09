@@ -566,4 +566,8 @@ TRANSLATIONS = {
     "reset_password_button": "Postavi novu šifru",
     "new_password_confirm": "Potvrdi novu šifru",
     "back_to_login": "Nazad na prijavu",
+
+    "pdf_export": "PDF izveštaj",
+    "pdf_export_analytics": "PDF izveštaj analitike",
+    "pdf_export_project": "PDF izveštaj projekta",
 }

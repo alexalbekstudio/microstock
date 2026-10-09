@@ -13,6 +13,8 @@ FONT_DIR = Path(__file__).parent / "fonts"
 FONT_REGULAR = FONT_DIR / "DejaVuSans.ttf"
 FONT_BOLD = FONT_DIR / "DejaVuSans-Bold.ttf"
 
+# --- Logo ---
+LOGO_PATH = Path(__file__).parent / "static" / "img" / "logo-wordmark.png"
 
 # --- Boje ---
 CRNA = (17, 17, 17)
@@ -26,10 +28,19 @@ class InvoicePDF(FPDF):
     """Podklasa FPDF za fakturu."""
 
     def header(self):
-        # Logo / naziv
-        self.set_font("DejaVu", "B", 20)
+        # Logo levo (ako postoji)
+        if LOGO_PATH.exists():
+            try:
+                self.image(str(LOGO_PATH), x=10, y=8, w=40)
+            except Exception:
+                pass
+        # Naziv aplikacije
+        self.set_xy(55, 10)
+        self.set_font("DejaVu", "B", 16)
         self.set_text_color(*CRNA)
-        self.cell(0, 10, "MicroStock", ln=True, align="L")
+        self.cell(0, 8, "MicroStock", ln=True, align="L")
+
+        self.set_x(55)
         self.set_font("DejaVu", "", 9)
         self.set_text_color(*SIVA)
         self.cell(0, 5, "Tvoja online prodavnica", ln=True, align="L")
@@ -72,7 +83,16 @@ def generate_invoice_pdf(order, items, subtotal, fee, total,
     pdf.set_x(110)
     pdf.set_font("DejaVu", "", 10)
     pdf.set_text_color(*SIVA)
-    pdf.cell(90, 5, f"Datum: {order['created_at'][:10]}", align="R", ln=True)
+    # Konvertuj created_at u string (radi i za datetime i za string)
+    created = order.get("created_at")
+    if hasattr(created, "strftime"):
+        created_str = created.strftime("%d.%m.%Y")
+    elif created:
+        created_str = str(created)[:10]
+    else:
+        created_str = "—"
+
+    pdf.cell(90, 5, f"Datum: {created_str}", align="R", ln=True)
     pdf.set_x(110)
     pdf.cell(90, 5, f"Kanal: {order['channel']}", align="R", ln=True)
     pdf.set_x(110)
@@ -179,5 +199,241 @@ def generate_invoice_pdf(order, items, subtotal, fee, total,
     pdf.set_line_width(0.5)
     pdf.set_font("DejaVu", "B", 10)
     pdf.cell(40, 10, "PLAĆENO", border=1, align="C", ln=True)
+
+    return bytes(pdf.output())
+
+# ============================================================
+# ANALYTICS PDF
+# ============================================================
+
+def generate_analytics_pdf(kpi, channels, products, loss, customers,
+                            days=None, lang="sr", currency="RSD",
+                            currency_symbol="din",
+                            title="Analytics"):
+    """Vraća bytes PDF izveštaja analitike."""
+    from datetime import datetime as _dt
+
+    pdf = InvoicePDF(orientation="P", unit="mm", format="A4")
+    pdf.add_font("DejaVu", "", str(FONT_REGULAR))
+    pdf.add_font("DejaVu", "B", str(FONT_BOLD))
+    pdf.add_font("DejaVu", "I", str(FONT_REGULAR))
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+
+    # Naslov + period
+    pdf.set_xy(10, 12)
+    pdf.set_font("DejaVu", "B", 18)
+    pdf.set_text_color(*CRNA)
+    pdf.cell(0, 10, title, ln=True, align="L")
+
+    pdf.set_x(10)
+    pdf.set_font("DejaVu", "", 9)
+    pdf.set_text_color(*SIVA)
+    period_label = f"Period: {days} dana" if days else "Period: sve vreme"
+    pdf.cell(0, 5, period_label, ln=True, align="L")
+
+    pdf.set_x(10)
+    pdf.cell(0, 5, f"Generisano: {_dt.now().strftime('%d.%m.%Y %H:%M')}", ln=True, align="L")
+
+    pdf.ln(4)
+
+    # === KPI ===
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.set_text_color(*CRNA)
+    pdf.cell(0, 8, "KPI", ln=True)
+
+    pdf.set_font("DejaVu", "", 10)
+    kpi_rows = [
+        ("Prihod:",       f"{float(kpi.get('revenue', 0)):.2f} {currency_symbol}"),
+        ("Provizije:",    f"{float(kpi.get('fees', 0)):.2f} {currency_symbol}"),
+        ("Trošak robe:",  f"{float(kpi.get('cost', 0)):.2f} {currency_symbol}"),
+        ("Dostava:",      f"{float(kpi.get('shipping', 0)):.2f} {currency_symbol}"),
+        ("Profit:",       f"{float(kpi.get('profit', 0)):.2f} {currency_symbol}"),
+        ("Marža:",        f"{kpi.get('margin', 0)}%"),
+        ("Narudžbina:",   f"{kpi.get('orders', 0)}"),
+    ]
+    for label, value in kpi_rows:
+        pdf.set_font("DejaVu", "", 10)
+        pdf.cell(60, 6, label)
+        pdf.set_font("DejaVu", "B", 10)
+        pdf.cell(0, 6, value, ln=True)
+
+    # === Kanali ===
+    if channels:
+        pdf.add_page()
+        pdf.set_font("DejaVu", "B", 12)
+        pdf.set_text_color(*CRNA)
+        pdf.cell(0, 8, "Prodaja po kanalima", ln=True)
+        pdf.ln(2)
+
+        # Header tabele
+        pdf.set_fill_color(*CRNA)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("DejaVu", "B", 8)
+        headers = [("Kanal", 35), ("Prihod", 30), ("Proviz.", 25),
+                   ("Trošak", 25), ("Dostava", 25), ("Profit", 30), ("Nar.", 15)]
+        for h, w in headers:
+            pdf.cell(w, 7, h, fill=True, align="C")
+        pdf.ln()
+
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font("DejaVu", "", 9)
+        for c in channels:
+            pdf.cell(35, 6, str(c.get("channel_name", ""))[:20])
+            pdf.cell(30, 6, f"{float(c.get('revenue', 0)):.2f}", align="R")
+            pdf.cell(25, 6, f"{float(c.get('fees', 0)):.2f}", align="R")
+            pdf.cell(25, 6, f"{float(c.get('cost', 0)):.2f}", align="R")
+            pdf.cell(25, 6, f"{float(c.get('shipping', 0)):.2f}", align="R")
+            pdf.cell(30, 6, f"{float(c.get('profit', 0)):.2f}", align="R")
+            pdf.cell(15, 6, str(c.get("orders", 0)), align="C")
+            pdf.ln()
+
+    # === Top proizvodi ===
+    if products:
+        pdf.add_page()
+        pdf.set_font("DejaVu", "B", 12)
+        pdf.cell(0, 8, "Top proizvodi", ln=True)
+        pdf.ln(2)
+
+        pdf.set_fill_color(*CRNA)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("DejaVu", "B", 8)
+        for h, w in [("SKU", 30), ("Naziv", 70), ("Kom", 20), ("Prihod", 30), ("Profit", 30)]:
+            pdf.cell(w, 7, h, fill=True, align="C")
+        pdf.ln()
+
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font("DejaVu", "", 9)
+        for p in products[:20]:
+            pdf.cell(30, 6, str(p.get("sku", ""))[:15])
+            pdf.cell(70, 6, str(p.get("product_name", ""))[:35])
+            pdf.cell(20, 6, str(p.get("units", 0)), align="C")
+            pdf.cell(30, 6, f"{float(p.get('revenue', 0)):.2f}", align="R")
+            pdf.cell(30, 6, f"{float(p.get('profit', 0)):.2f}", align="R")
+            pdf.ln()
+
+    # === Top kupci ===
+    if customers:
+        pdf.add_page()
+        pdf.set_font("DejaVu", "B", 12)
+        pdf.cell(0, 8, "Top kupci", ln=True)
+        pdf.ln(2)
+
+        pdf.set_fill_color(*CRNA)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("DejaVu", "B", 8)
+        for h, w in [("Kupac", 120), ("Narudžbina", 30), ("Ukupno", 30)]:
+            pdf.cell(w, 7, h, fill=True, align="C")
+        pdf.ln()
+
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font("DejaVu", "", 9)
+        for c in customers[:20]:
+            pdf.cell(120, 6, str(c.get("customer_name", ""))[:50])
+            pdf.cell(30, 6, str(c.get("orders", 0)), align="C")
+            pdf.cell(30, 6, f"{float(c.get('revenue', 0)):.2f}", align="R")
+            pdf.ln()
+
+    return bytes(pdf.output())
+
+# ============================================================
+# PROJECT PDF
+# ============================================================
+
+def generate_project_pdf(project, time_entries, expenses,
+                          currency_symbol="din", lang="sr"):
+    """Vraća bytes PDF izveštaja projekta."""
+    from datetime import datetime as _dt
+
+    pdf = InvoicePDF(orientation="P", unit="mm", format="A4")
+    pdf.add_font("DejaVu", "", str(FONT_REGULAR))
+    pdf.add_font("DejaVu", "B", str(FONT_BOLD))
+    pdf.add_font("DejaVu", "I", str(FONT_REGULAR))
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+
+    # Naslov
+    pdf.set_xy(10, 12)
+    pdf.set_font("DejaVu", "B", 18)
+    pdf.set_text_color(*CRNA)
+    pdf.cell(0, 10, f"Projekat: {project.get('name', '')}", ln=True, align="L")
+
+    pdf.set_x(10)
+    pdf.set_font("DejaVu", "", 9)
+    pdf.set_text_color(*SIVA)
+    pdf.cell(0, 5, f"Kod: {project.get('code', '—')}  ·  Klijent: {project.get('client', '—')}", ln=True, align="L")
+    pdf.set_x(10)
+    pdf.cell(0, 5, f"Rok: {project.get('deadline', '—')}  ·  Status: {project.get('status', '—')}", ln=True, align="L")
+    pdf.set_x(10)
+    pdf.cell(0, 5, f"Generisano: {_dt.now().strftime('%d.%m.%Y %H:%M')}", ln=True, align="L")
+
+    pdf.ln(4)
+
+    # KPI
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.set_text_color(*CRNA)
+    pdf.cell(0, 8, "KPI", ln=True)
+
+    pdf.set_font("DejaVu", "", 10)
+    kpi_rows = [
+        ("Ugovorena vrednost:",  f"{float(project.get('contract_value', 0)):.2f} {currency_symbol}"),
+        ("Ukupan trošak:",       f"{float(project.get('total_cost', 0)):.2f} {currency_symbol}"),
+        ("Profit:",              f"{float(project.get('profit', 0)):.2f} {currency_symbol}"),
+        ("Marža:",               f"{project.get('margin', 0)}%"),
+        ("Radni sati:",          f"{float(project.get('total_hours', 0)):.1f} h"),
+    ]
+    for label, value in kpi_rows:
+        pdf.set_font("DejaVu", "", 10)
+        pdf.cell(70, 6, label)
+        pdf.set_font("DejaVu", "B", 10)
+        pdf.cell(0, 6, value, ln=True)
+
+    # Sati
+    if time_entries:
+        pdf.add_page()
+        pdf.set_font("DejaVu", "B", 12)
+        pdf.set_text_color(*CRNA)
+        pdf.cell(0, 8, "Radni sati", ln=True)
+        pdf.ln(2)
+
+        pdf.set_fill_color(*CRNA)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("DejaVu", "B", 8)
+        for h, w in [("Datum", 30), ("Član", 60), ("Sati", 20), ("Opis", 80)]:
+            pdf.cell(w, 7, h, fill=True, align="C")
+        pdf.ln()
+
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font("DejaVu", "", 9)
+        for t in time_entries:
+            pdf.cell(30, 6, str(t.get("entry_date", ""))[:10])
+            pdf.cell(60, 6, str(t.get("member_name", ""))[:30])
+            pdf.cell(20, 6, f"{float(t.get('hours', 0)):.2f}", align="C")
+            pdf.cell(80, 6, str(t.get("description", ""))[:50])
+            pdf.ln()
+
+    # Troškovi
+    if expenses:
+        pdf.add_page()
+        pdf.set_font("DejaVu", "B", 12)
+        pdf.set_text_color(*CRNA)
+        pdf.cell(0, 8, "Troškovi", ln=True)
+        pdf.ln(2)
+
+        pdf.set_fill_color(*CRNA)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("DejaVu", "B", 8)
+        for h, w in [("Datum", 30), ("Kategorija", 40), ("Opis", 80), ("Iznos", 40)]:
+            pdf.cell(w, 7, h, fill=True, align="C")
+        pdf.ln()
+
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font("DejaVu", "", 9)
+        for e in expenses:
+            pdf.cell(30, 6, str(e.get("expense_date", ""))[:10])
+            pdf.cell(40, 6, str(e.get("category", ""))[:20])
+            pdf.cell(80, 6, str(e.get("description", ""))[:50])
+            pdf.cell(40, 6, f"{float(e.get('amount', 0)):.2f} {currency_symbol}", align="R")
+            pdf.ln()
 
     return bytes(pdf.output())

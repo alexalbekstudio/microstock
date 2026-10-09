@@ -202,34 +202,39 @@ def render_report_html(data, currency="RSD"):
 # ==================== PDF ====================
 
 def render_report_pdf(data, currency="RSD"):
-    """Pravi PDF izveštaj koristeći FPDF."""
+    """Pravi PDF izveštaj koristeći InvoicePDF klasu (sa logom u header-u)."""
     try:
-        from fpdf import FPDF
+        from pdf import InvoicePDF, FONT_REGULAR, FONT_BOLD
         from pathlib import Path
     except ImportError:
         return None
 
-    PDF = FPDF(orientation="P", unit="mm", format="A4")
-    PDF.add_page()
+    PDF = InvoicePDF(orientation="P", unit="mm", format="A4")
 
-    fonts_dir = Path(__file__).parent / "fonts"
-    regular = str(fonts_dir / "DejaVuSans.ttf")
-    bold    = str(fonts_dir / "DejaVuSans-Bold.ttf")
-    if Path(regular).exists() and Path(bold).exists():
-        PDF.add_font("DejaVu", "", regular)
-        PDF.add_font("DejaVu", "B", bold)
+    # Registruj DejaVu fontove
+    try:
+        PDF.add_font("DejaVu", "", str(FONT_REGULAR))
+        PDF.add_font("DejaVu", "B", str(FONT_BOLD))
+        PDF.add_font("DejaVu", "I", str(FONT_REGULAR))
         FONT = "DejaVu"
-    else:
+    except Exception:
         FONT = "Helvetica"
+
+    PDF.set_auto_page_break(auto=True, margin=20)
+    PDF.add_page()
 
     def m(v):
         return format_money(v or 0, currency)
 
     period_label = t("report_period_week") if data["period"] == "week" else t("report_period_month")
 
+    # Naslov — pomeren niže jer header() zauzima gornji deo
+    PDF.set_xy(10, 45)
     PDF.set_font(FONT, "B", 18)
+    PDF.set_text_color(17, 17, 17)
     PDF.cell(0, 12, f"{period_label} — {data['label']}", ln=1)
 
+    PDF.set_x(10)
     PDF.set_font(FONT, "", 11)
     PDF.set_text_color(100)
     PDF.cell(0, 8, f"{t('report_period')}: {data['start']} → {data['end']}", ln=1)
@@ -258,6 +263,7 @@ def render_report_pdf(data, currency="RSD"):
         PDF.cell(0, 7, val, border=0, ln=1)
     PDF.ln(4)
 
+    # Top proizvodi
     PDF.set_font(FONT, "B", 13)
     PDF.cell(0, 8, t("report_top_products"), ln=1)
     PDF.set_font(FONT, "B", 10)
@@ -267,12 +273,13 @@ def render_report_pdf(data, currency="RSD"):
     PDF.cell(0, 7, t("report_col_profit"), border="B", align="R", ln=1)
     PDF.set_font(FONT, "", 10)
     for p in data["products"]:
-        PDF.cell(80, 6, p["product_name"][:40], border=0)
-        PDF.cell(25, 6, str(p["units"]), border=0, align="R")
-        PDF.cell(40, 6, m(p["revenue"]), border=0, align="R")
-        PDF.cell(0, 6, m(p["profit"]), border=0, align="R", ln=1)
+        PDF.cell(80, 6, str(p.get("product_name", ""))[:40], border=0)
+        PDF.cell(25, 6, str(p.get("units", 0)), border=0, align="R")
+        PDF.cell(40, 6, m(p.get("revenue", 0)), border=0, align="R")
+        PDF.cell(0, 6, m(p.get("profit", 0)), border=0, align="R", ln=1)
     PDF.ln(4)
 
+    # Kanali
     PDF.set_font(FONT, "B", 13)
     PDF.cell(0, 8, t("report_by_channel"), ln=1)
     PDF.set_font(FONT, "B", 10)
@@ -283,11 +290,11 @@ def render_report_pdf(data, currency="RSD"):
     PDF.cell(0, 7, t("report_col_margin"), border="B", align="R", ln=1)
     PDF.set_font(FONT, "", 10)
     for c in data["channels"]:
-        PDF.cell(60, 6, c["channel_name"], border=0)
-        PDF.cell(25, 6, str(c["orders"]), border=0, align="R")
-        PDF.cell(40, 6, m(c["revenue"]), border=0, align="R")
-        PDF.cell(40, 6, m(c["profit"]), border=0, align="R")
-        PDF.cell(0, 6, f"{c['margin']}%", border=0, align="R", ln=1)
+        PDF.cell(60, 6, str(c.get("channel_name", "")), border=0)
+        PDF.cell(25, 6, str(c.get("orders", 0)), border=0, align="R")
+        PDF.cell(40, 6, m(c.get("revenue", 0)), border=0, align="R")
+        PDF.cell(40, 6, m(c.get("profit", 0)), border=0, align="R")
+        PDF.cell(0, 6, f"{c.get('margin', 0)}%", border=0, align="R", ln=1)
 
     return bytes(PDF.output())
 
@@ -336,7 +343,6 @@ def send_report(period="week", to_email=None, lang=None, currency=None):
                 clear_force_locale()
 
     except Exception as e:
-    
         try:
             from flask import current_app
             current_app.logger.error(f"Report greška: {e}")

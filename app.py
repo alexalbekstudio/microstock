@@ -482,6 +482,92 @@ def invoice_pdf(order_id):
         download_name=filename,
     )
 
+@app.route("/analytics.pdf")
+@login_required
+@role_required(*ALL_ROLES)
+def analytics_pdf():
+    """PDF izveštaj analitike."""
+    days = request.args.get("days", type=int)
+
+    from currency import get_display_currency, SUPPORTED_CURRENCIES
+    currency = get_display_currency()
+    symbol = SUPPORTED_CURRENCIES[currency]["symbol"]
+
+    # Uzmi sve podatke iz analytics modula
+    kpi = analytics.overview(days)
+    channels = analytics.by_channel(days)
+    products = analytics.by_product(days, limit=20)
+    customers = analytics.top_customers(days, limit=20)
+
+    from pdf import generate_analytics_pdf
+    pdf_bytes = generate_analytics_pdf(
+        kpi=kpi,
+        channels=[dict(c) for c in channels] if channels else [],
+        products=[dict(p) for p in products] if products else [],
+        loss=[],
+        customers=[dict(c) for c in customers] if customers else [],
+        days=days,
+        currency=currency,
+        currency_symbol=symbol,
+        title="Analitika prodaje" if get_locale() == "sr" else "Sales analytics",
+    )
+
+    filename = f"analitika-{days or 'all'}-{currency}.pdf"
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+@app.route("/projects/<int:pid>.pdf")
+@login_required
+@role_required(*ALL_ROLES)
+def project_pdf(pid):
+    """PDF izveštaj projekta."""
+    p = proj.get_project(pid)
+    if not p:
+        abort(404)
+
+    p = dict(p)
+    time_entries = [dict(t) for t in proj.list_time(pid)]
+    expenses = [dict(e) for e in proj.list_expenses(pid)]
+
+    from currency import get_display_currency, SUPPORTED_CURRENCIES, convert
+    currency = get_display_currency()
+    symbol = SUPPORTED_CURRENCIES[currency]["symbol"]
+
+    # Konvertuj KPI vrednosti ako nije RSD
+    if currency != "RSD":
+        try:
+            for k in ("contract_value", "total_cost", "profit"):
+                if p.get(k):
+                    p[k] = convert(float(p[k]), "RSD", currency)
+            for t in time_entries:
+                if t.get("cost"):
+                    t["cost"] = convert(float(t["cost"]), "RSD", currency)
+            for e in expenses:
+                if e.get("amount"):
+                    e["amount"] = convert(float(e["amount"]), "RSD", currency)
+        except Exception:
+            pass  # fallback na RSD
+
+    from pdf import generate_project_pdf
+    pdf_bytes = generate_project_pdf(
+        project=p,
+        time_entries=time_entries,
+        expenses=expenses,
+        currency_symbol=symbol,
+    )
+
+    filename = f"projekat-{pid:05d}-{currency}.pdf"
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=filename,
+    )
 
 # ==================== CSV EXPORT ====================
 

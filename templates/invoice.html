@@ -2,7 +2,15 @@
 {% block title %}{{ t("invoice") }} #{{ order.id }} — MicroStock{% endblock %}
 {% block topbar_title %}🧾 {{ t("invoice") }} #{{ order.id }}{% endblock %}
 {% block content %}
-
+{# ============ LOGO HEADER ============ #}
+<div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:2px solid #0f172a">
+  <img src="{{ url_for('static', filename='img/logo-wordmark.png') }}"
+       alt="ALEXANDAR" style="height:48px; width:auto">
+  <div>
+    <div style="font-weight:800; font-size:1.15rem">MicroStock</div>
+    <div class="muted small">{{ t("app_name") }} · {{ t("invoice") }}</div>
+  </div>
+</div>
 <div class="page-header">
   <h1>🧾 {{ t("invoice") }} #{{ order.id }}</h1>
   <div class="page-header__actions">
