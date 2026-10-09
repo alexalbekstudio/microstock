@@ -93,6 +93,10 @@
         class="sidebar__link {{ 'active' if nav == 'pricing_presets' }}">
         <span class="sidebar__icon">⚙️</span> {{ t("channel_presets") }}
       </a>
+      <a href="{{ url_for('admin_currency_rates') }}"
+         class="sidebar__link {{ 'active' if nav == 'admin_currency_rates' }}">
+        <span class="sidebar__icon">💱</span> {{ t("currency_rates") }}
+      </a>
       {% endif %}
     </nav>
 

@@ -156,3 +156,73 @@ def _run_report(app, period):
             app.logger.info(f"Report {period}: {'poslato' if ok else 'NIJE poslato'}")
         except Exception as e:
             app.logger.error(f"Report {period} greška: {e}")
+
+# ============================================================
+# ADMIN: kurs
+# ============================================================
+
+def list_all_rates():
+    """
+    Vraća sve trenutne kurseve iz exchange_rates (najnoviji po paru).
+    """
+    conn = connect()
+    try:
+        rows = conn.execute("""
+            SELECT DISTINCT ON (source_currency, target_currency)
+                source_currency, target_currency, rate, rate_date, fetched_at
+            FROM exchange_rates
+            ORDER BY source_currency, target_currency, rate_date DESC
+        """).fetchall()
+    finally:
+        conn.close()
+
+    return [
+        {
+            "source": r["source_currency"],
+            "target": r["target_currency"],
+            "rate": float(r["rate"]),
+            "rate_date": r["rate_date"],
+            "fetched_at": r["fetched_at"],
+        }
+        for r in rows
+    ]
+
+
+def set_manual_rate(source, target, rate, rate_date=None):
+    """
+    Ručno postavi kurs (UPSERT).
+    Ako rate_date nije zadat — koristi današnji datum.
+    """
+    from datetime import date as _date
+    source = source.upper().strip()
+    target = target.upper().strip()
+    if rate_date is None:
+        rate_date = _date.today()
+
+    conn = connect()
+    try:
+        conn.execute("""
+            INSERT INTO exchange_rates
+                (source_currency, target_currency, rate, rate_date)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (source_currency, target_currency, rate_date)
+            DO UPDATE SET
+                rate = excluded.rate,
+                fetched_at = CURRENT_TIMESTAMP
+        """, (source, target, float(rate), rate_date))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def refresh_from_nbs():
+    """
+    Ručno osveži sve kurseve iz NBS API-ja.
+    Vraća (ok, broj_upisanih, poruka).
+    """
+    try:
+        data = fetch_nbs_latest()
+        n = save_rates_to_db(data)
+        return True, n, f"Uspešno povučeno {n} kurseva za {data['rate_date']}."
+    except Exception as e:
+        return False, 0, f"Greška: {e}"

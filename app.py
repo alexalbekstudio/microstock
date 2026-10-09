@@ -39,8 +39,6 @@ init_scheduler(app)
 
 # ==================== JINJA GLOBALNE ====================
 
-# ==================== JINJA GLOBALNE ====================
-
 @app.context_processor
 def inject_i18n_and_currency():
     """Ubacuje t(), display_money(), jezik i valutu u sve template-e."""
@@ -995,6 +993,76 @@ def team_add():
     flash("Član tima dodat.", "ok")
     return redirect(request.referrer or url_for("projects_view"))
 
+# ==================== ADMIN: KURS ====================
+
+@app.route("/admin/currency-rates")
+@login_required
+@role_required(*ADMIN_ONLY)
+def admin_currency_rates():
+    """Prikaz svih kurseva + forma za ručni unos."""
+    import currency_rates
+
+    rates = currency_rates.list_all_rates()
+    # Uvek prikaži i EUR i USD, čak i ako nisu u bazi
+    existing = {r["source"] for r in rates}
+    for code in ("EUR", "USD"):
+        if code not in existing:
+            rates.append({
+                "source": code,
+                "target": "RSD",
+                "rate": None,
+                "rate_date": None,
+                "fetched_at": None,
+            })
+
+    return render_template(
+        "admin_currency_rates.html",
+        rates=sorted(rates, key=lambda r: r["source"]),
+    )
+
+
+@app.route("/admin/currency-rates/set", methods=["POST"])
+@login_required
+@role_required(*ADMIN_ONLY)
+def admin_currency_rates_set():
+    """Ručno postavi kurs."""
+    import currency_rates
+
+    source = request.form.get("source", "").strip().upper()
+    target = request.form.get("target", "RSD").strip().upper()
+    rate_str = request.form.get("rate", "").strip()
+
+    if not source or source == target:
+        flash("Neispravan izvor valute.", "err")
+        return redirect(url_for("admin_currency_rates"))
+
+    try:
+        rate = float(rate_str)
+        if rate <= 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        flash("Kurs mora biti pozitivan broj.", "err")
+        return redirect(url_for("admin_currency_rates"))
+
+    try:
+        currency_rates.set_manual_rate(source, target, rate)
+        flash(f"Kurs {source}→{target} = {rate:.4f} sačuvan.", "success")
+    except Exception as e:
+        flash(f"Greška: {e}", "err")
+
+    return redirect(url_for("admin_currency_rates"))
+
+
+@app.route("/admin/currency-rates/refresh", methods=["POST"])
+@login_required
+@role_required(*ADMIN_ONLY)
+def admin_currency_rates_refresh():
+    """Osveži sve kurseve iz NBS API-ja."""
+    import currency_rates
+
+    ok, n, msg = currency_rates.refresh_from_nbs()
+    flash(msg, "success" if ok else "err")
+    return redirect(url_for("admin_currency_rates"))
 
 # ==================== ADMIN: EMAIL TEST ====================
 
