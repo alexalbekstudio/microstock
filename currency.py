@@ -137,11 +137,8 @@ def display_money(amount_rsd, force_currency=None):
     Ako kurs nije dostupan — prikazuje iznos u RSD (fallback).
     NIKAD ne puca.
     """
-    try:
-        from currency import get_display_currency
-        currency = force_currency or get_display_currency()
-    except Exception:
-        currency = "RSD"
+    # get_display_currency() je u ISTOM fajlu — pozovi direktno, bez import-a
+    currency = force_currency or get_display_currency()
 
     if amount_rsd is None:
         amount_rsd = 0
