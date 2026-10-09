@@ -507,4 +507,29 @@ TRANSLATIONS = {
     "tool_test_report_week_en_desc":  "Send weekly report in English",
     "tool_test_report_month_en":      "Test monthly (EN)",
     "tool_test_report_month_en_desc": "Send monthly report in English",
+
+    "all_rights_reserved": "All rights reserved.",
+
+    # Capital
+"capital_title": "Capital",
+"capital_current": "Current balance",
+"capital_type": "Transaction type",
+"capital_type_deposit": "Deposit",
+"capital_type_withdrawal": "Withdrawal",
+"capital_type_purchase": "Purchase",
+"capital_type_sale": "Sale",
+"capital_type_adjustment": "Adjustment",
+"capital_amount": "Amount (RSD)",
+"capital_note": "Note",
+"capital_note_placeholder": "e.g. restock payment",
+"capital_add": "Add transaction",
+"capital_history": "Transaction history",
+"capital_date": "Date",
+"capital_balance": "Balance after",
+"capital_user": "User",
+"capital_no_transactions": "No transactions yet. Add the first deposit above.",
+"all_rights_reserved": "All rights reserved.",
+
+"capital_sales": "sales",
+"capital_purchases": "purchases",
 }

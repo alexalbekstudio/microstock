@@ -18,7 +18,6 @@ def control_center(days=30):
     proj_overview = proj.projects_overview()
 
     # === 3. Šta treba danas ===
-    # Narudžbine koje nisu završene
     conn = get_conn()
     pending_orders = conn.execute("""
         SELECT o.id, o.customer_name, o.status, c.name AS channel,
@@ -28,7 +27,6 @@ def control_center(days=30):
         ORDER BY o.id ASC LIMIT 8
     """).fetchall()
 
-    # Projekti bez ijednog unosa sati (možda zaboravljeni)
     stale_projects = conn.execute("""
         SELECT p.id, p.code, p.name, p.client
         FROM projects p
@@ -37,8 +35,6 @@ def control_center(days=30):
         ORDER BY p.id DESC LIMIT 5
     """).fetchall()
 
-    # Projekti sa rokom u narednih 14 dana
-        # Projekti sa rokom u narednih 14 dana
     soon_deadlines = conn.execute("""
         SELECT id, code, name, client, deadline
         FROM projects
@@ -50,7 +46,7 @@ def control_center(days=30):
 
     conn.close()
 
-    # === 4. Ukupan alarm count (za bedž u headeru) ===
+    # === 4. Ukupan alarm count ===
     total_alerts = (
         len(low_stock)
         + len(loss_products)
@@ -58,6 +54,10 @@ def control_center(days=30):
         + len(stale_projects)
         + len(soon_deadlines)
     )
+
+    # === 5. Kapital (samo admin) ===
+    import capital as capital_mod
+    capital_summary = capital_mod.get_summary(days=days)
 
     return {
         "kpi": kpi,
@@ -71,4 +71,5 @@ def control_center(days=30):
         "soon_deadlines": soon_deadlines,
         "total_alerts": total_alerts,
         "days": days,
+        "capital": capital_summary,   # ← DODATO
     }

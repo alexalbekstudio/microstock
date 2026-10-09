@@ -150,6 +150,19 @@
 </div>
 {% endif %}
 
+  {# === KAPITAL (samo admin) === #}
+  {% if current_user.is_authenticated and current_user.role == 'admin' %}
+  <div class="kpi kpi--capital">
+    <div class="kpi__label">💰 {{ t("capital_title") }}</div>
+    <div class="kpi__value">{{ display_money(capital.current) }}</div>
+    <div class="kpi__meta">
+      {% if capital.sales > 0 %}+{{ display_money(capital.sales) }} {{ t("capital_sales") }}{% endif %}
+      {% if capital.purchases > 0 %} −{{ display_money(capital.purchases) }} {{ t("capital_purchases") }}{% endif %}
+      {% if capital.sales == 0 and capital.purchases == 0 %}&nbsp;{% endif %}
+    </div>
+  </div>
+  {% endif %}
+
 {# ============ 4. GRAFIKONI ============ #}
 <div class="split">
   <div>

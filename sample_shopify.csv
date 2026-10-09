@@ -1,0 +1,6 @@
+Name,Billing Name,Lineitem name,Lineitem sku,Lineitem quantity,Lineitem price,Financial Status,Created at,Notes
+#1001,Lazar Đorđević,Cotton Tote Bag,TOTE-010,1,18.00,paid,2026-10-01,
+#1002,Ivana Marković,Soy Candle Lavender,CANDLE-011,3,12.00,paid,2026-10-01,
+#1003,Nikola Pavlović,Cotton Tote Bag,TOTE-010,2,18.00,paid,2026-10-02,
+#1004,Teodora Kostić,Notebook A5 Dot Grid,NOTE-012,1,9.50,paid,2026-10-02,Business order
+#1005,Vuk Radović,Soy Candle Lavender,CANDLE-011,5,12.00,paid,2026-10-03,Bulk order

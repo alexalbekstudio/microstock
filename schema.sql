@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS users (
     active        INTEGER NOT NULL DEFAULT 1,
     language      TEXT DEFAULT 'sr',
     currency      TEXT DEFAULT 'RSD',
+    capital       NUMERIC(12,2) NOT NULL DEFAULT 0,   -- ← DODATO
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login    TIMESTAMP
 );
@@ -254,10 +255,30 @@ CREATE TABLE IF NOT EXISTS channel_presets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO channel_presets (name, fee_pct, tax_pct) VALUES
-    ('Instagram', 0.0, 0),
-    ('WhatsApp',  0.0, 0),
-    ('Etsy',      6.5, 0),
-    ('Faire',    15.0, 0),
-    ('Lično',     0.0, 0)
+-- ============================================
+-- CAPITAL (Alat #5 — Praćenje kapitala)
+-- ============================================
+CREATE TABLE IF NOT EXISTS capital_transactions (
+    id          SERIAL PRIMARY KEY,
+    user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    type        TEXT NOT NULL,
+    amount      NUMERIC(12,2) NOT NULL,
+    balance     NUMERIC(12,2) NOT NULL,
+    note        TEXT,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_capital_tx_user
+ON capital_transactions(user_id, created_at DESC);
+
+INSERT INTO channels (name, fee_percent) VALUES
+    ('Instagram', 0.0),
+    ('WhatsApp',  0.0),
+    ('Etsy',      6.5),
+    ('Faire',     15.0),
+    ('Lično',     0.0),
+    ('Shopify',   0.0),    -- ← DODATO
+    ('Gumroad',   0.0),    -- ← DODATO
+    ('Payhip',    0.0),    -- ← DODATO
+    ('TikTok',    0.0)     -- ← DODATO
 ON CONFLICT (name) DO NOTHING;

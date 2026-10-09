@@ -226,7 +226,7 @@ def import_rows(rows, mapping, channel_id, source_name,
     Svaki red = jedna narudžbina sa jednom stavkom.
     (Ako platforma ima multi-item CSV, grupišemo po external_id.)
     """
-    from models import create_order, get_order_by_external_id
+    from models import get_order_by_external_id
 
     # Grupisanje po external_id (jer CSV može imati 1 red = 1 stavka)
     grouped = {}
@@ -267,17 +267,22 @@ def import_rows(rows, mapping, channel_id, source_name,
             results["failed"] += 1
             results["errors"].append(f"red {i+2}: {e}")
 
-    # Log
-    conn.execute("""
-        INSERT INTO import_logs
-        (user_id, source, filename, rows_total, rows_imported,
-         rows_skipped, rows_failed, errors)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    """, (user_id, source_name, filename, len(rows),
-          results["imported"], results["skipped"], results["failed"],
-          json.dumps(results["errors"][:50], ensure_ascii=False)))
-    conn.commit()
-    conn.close()
+        # Log
+    try:
+        conn.execute("""
+            INSERT INTO import_logs
+            (user_id, source, filename, rows_total, rows_imported,
+             rows_skipped, rows_failed, errors)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (user_id, source_name, filename, len(rows),
+              results["imported"], results["skipped"], results["failed"],
+              json.dumps(results["errors"][:50], ensure_ascii=False)))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        results["errors"].append(f"Log greška: {e}")
+    finally:
+        conn.close()
 
     return results
 
@@ -285,11 +290,14 @@ def import_rows(rows, mapping, channel_id, source_name,
 def _import_group(conn, ext_id, group, mapping, channel_id, source_name,
                   auto_create_products, results):
     """Uvozi jednu narudžbinu (može imati više stavki)."""
-    from models import create_order, get_order_by_external_id
+    from models import create_order_tx
 
-    # Duplikat%s
+    # Duplikat — preko iste konekcije
     if ext_id:
-        existing = get_order_by_external_id(ext_id, source_name)
+        existing = conn.execute(
+            "SELECT id FROM orders WHERE external_id=%s AND source=%s",
+            (str(ext_id), str(source_name))
+        ).fetchone()
         if existing:
             results["skipped"] += 1
             return
@@ -308,7 +316,8 @@ def _import_group(conn, ext_id, group, mapping, channel_id, source_name,
         results["skipped"] += 1
         return
 
-    order_id, dup = create_order(
+    order_id, dup = create_order_tx(
+        conn,
         customer_name=str(customer).strip(),
         channel_id=channel_id,
         items=items,
@@ -324,7 +333,7 @@ def _import_group(conn, ext_id, group, mapping, channel_id, source_name,
 
 
 def _build_item(conn, row, mapping, auto_create_products, results):
-    """Vraća {product_id, qty} ili None."""
+    """Vraća {product_id, qty} ili None. Koristi prosleđenu konekciju."""
     sku = _get(row, mapping["items"].get("sku"))
     name = _get(row, mapping["items"].get("name"))
     qty_raw = _get(row, mapping["items"].get("qty"))
@@ -349,11 +358,17 @@ def _build_item(conn, row, mapping, auto_create_products, results):
     # Nađi proizvod po SKU, pa po imenu
     product_id = None
     if sku:
-        row_db = conn.execute("SELECT id FROM products WHERE sku=%s", (str(sku).strip(),)).fetchone()
+        row_db = conn.execute(
+            "SELECT id FROM products WHERE sku=%s",
+            (str(sku).strip(),)
+        ).fetchone()
         if row_db:
             product_id = row_db["id"]
     if not product_id and name:
-        row_db = conn.execute("SELECT id FROM products WHERE name=%s", (str(name).strip(),)).fetchone()
+        row_db = conn.execute(
+            "SELECT id FROM products WHERE name=%s",
+            (str(name).strip(),)
+        ).fetchone()
         if row_db:
             product_id = row_db["id"]
 
@@ -364,10 +379,12 @@ def _build_item(conn, row, mapping, auto_create_products, results):
         cur = conn.execute("""
             INSERT INTO products (sku, name, price, cost, stock, low_stock_at)
             VALUES (%s, %s, %s, 0, 0, 3)
+            RETURNING id
         """, (new_sku, new_name, price or 0))
-        conn.commit()
-        product_id = cur.lastrowid
-        results["created_products"].append(new_sku)
+        row_new = cur.fetchone()
+        product_id = row_new["id"] if row_new else None
+        if product_id:
+            results["created_products"].append(new_sku)
 
     if not product_id:
         return None

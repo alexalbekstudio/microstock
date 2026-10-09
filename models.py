@@ -67,58 +67,54 @@ def list_channels():
 
 # ==================== NARUDŽBINE ====================
 
-def create_order(customer_name, channel_id, items, note="",
-                 external_id=None, source="manual",
-                 shipping_cost=0, shipping_method=""):
-    conn = connect()
-    cur = conn.cursor()
+def create_order_tx(conn, customer_name, channel_id, items, note="",
+                    external_id=None, source="manual",
+                    shipping_cost=0, shipping_method=""):
+    """
+    Isto kao create_order, ali prima POSTOJEĆU konekciju.
+    Ne otvara novu, ne zatvara je. Pozivalac kontroliše transakciju.
+    Koristi isključivo conn.execute() (vraća RealDictCursor).
+    """
 
-    # Duplikat%s
+    # Duplikat
     if external_id:
-        dup = cur.execute(
+        dup = conn.execute(
             "SELECT id FROM orders WHERE external_id=%s AND source=%s",
             (external_id, source)
         ).fetchone()
         if dup:
-            conn.close()
             return dup["id"], True
 
-    cur.execute("""
+    cur = conn.execute("""
         INSERT INTO orders (customer_name, channel_id, note, external_id, source,
                             shipping_cost, shipping_method)
         VALUES (%s,%s,%s,%s,%s,%s,%s)
+        RETURNING id
     """, (customer_name, channel_id, note, external_id, source,
           float(shipping_cost or 0), (shipping_method or "").strip()))
-
-    # Uzmi ID novo-kreirane narudžbine (radi i za SQLite i PostgreSQL)
-    last = cur.execute("SELECT lastval() AS id").fetchone() \
-        if False else None   # placeholder
-
-    # Zapravo - koristi RETURNING (PostgreSQL) ili lastrowid (SQLite)
-    # Rešavamo univerzalno:
-    if hasattr(cur, "lastrowid") and cur.lastrowid:
-        order_id = cur.lastrowid
-    else:
-        # PostgreSQL - uzmi poslednji ID iz orders
-        order_id = cur.execute(
-            "SELECT id FROM orders ORDER BY id DESC LIMIT 1"
-        ).fetchone()["id"]
+    row_new = cur.fetchone()
+    order_id = row_new["id"] if row_new else None
+    if not order_id:
+        raise RuntimeError("Nisam dobio ID nove narudžbine.")
 
     for it in items:
-        prod = cur.execute("SELECT price FROM products WHERE id=%s", (it["product_id"],)).fetchone()
+        prod = conn.execute(
+            "SELECT price FROM products WHERE id=%s",
+            (it["product_id"],)
+        ).fetchone()
         if prod is None:
             raise ValueError(f"Proizvod {it['product_id']} ne postoji")
-        cur.execute("""
+
+        conn.execute("""
             INSERT INTO order_items (order_id, product_id, qty, unit_price)
             VALUES (%s,%s,%s,%s)
         """, (order_id, it["product_id"], it["qty"], prod["price"]))
 
-        # Umesto triggera - ručno smanji zalihu
-        cur.execute("""
-            UPDATE products SET stock = stock - %s WHERE id = %s
-        """, (it["qty"], it["product_id"]))
+        conn.execute(
+            "UPDATE products SET stock = stock - %s WHERE id = %s",
+            (it["qty"], it["product_id"])
+        )
 
-    conn.commit(); conn.close()
     return order_id, False
 
 def update_order(order_id, customer_name, channel_id, note, status,

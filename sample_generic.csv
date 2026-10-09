@@ -1,0 +1,6 @@
+external_id,customer,product_name,sku,qty,unit_price,date,status,note
+G-2001,Petar Nikolić,Minimalist Wallet,WALLET-100,1,25.00,2026-10-01,new,
+G-2002,Jovana Đukić,Canvas Tote,TOTE-101,2,14.00,2026-10-01,new,
+G-2003,Andrej Popović,Minimalist Wallet,WALLET-100,1,25.00,2026-10-02,new,First purchase
+G-2004,Katarina Simić,Enamel Pin Set,PIN-102,4,6.50,2026-10-02,new,
+G-2005,Đorđe Vasić,Canvas Tote,TOTE-101,1,14.00,2026-10-03,new,

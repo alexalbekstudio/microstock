@@ -42,6 +42,80 @@
   </form>
 </div>
 
+{# ============ KAPITAL (samo admin) ============ #}
+{% if current_user.role == 'admin' %}
+<div class="card">
+  <h3>💰 {{ t("capital_title") }}</h3>
+
+  <div class="capital-current">
+    <span class="capital-current__label">{{ t("capital_current") }}</span>
+    <span class="capital-current__value">
+      {{ "%.2f"|format(capital_current) }} RSD
+    </span>
+  </div>
+
+  <form method="post" action="{{ url_for('auth.capital_add') }}" class="capital-form">
+    <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none; margin-bottom:.75rem;">
+      <div class="form-row">
+        <label>{{ t("capital_type") }}</label>
+        <select name="type" required>
+          <option value="deposit">{{ t("capital_type_deposit") }}</option>
+          <option value="withdrawal">{{ t("capital_type_withdrawal") }}</option>
+          <option value="purchase">{{ t("capital_type_purchase") }}</option>
+          <option value="sale">{{ t("capital_type_sale") }}</option>
+          <option value="adjustment">{{ t("capital_type_adjustment") }}</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>{{ t("capital_amount") }}</label>
+        <input name="amount" type="number" step="0.01" min="0.01" required placeholder="0.00">
+      </div>
+      <div class="form-row">
+        <label>{{ t("capital_note") }}</label>
+        <input name="note" placeholder="{{ t('capital_note_placeholder') }}">
+      </div>
+    </div>
+    <button type="submit" class="btn btn--primary">➕ {{ t("capital_add") }}</button>
+  </form>
+
+  {% if capital_transactions %}
+  <h4 style="margin-top:1.5rem;">{{ t("capital_history") }}</h4>
+  <div class="table-wrap">
+    <table class="table-compact">
+      <thead>
+        <tr>
+          <th>{{ t("capital_date") }}</th>
+          <th>{{ t("capital_type") }}</th>
+          <th class="num">{{ t("capital_amount") }}</th>
+          <th class="num">{{ t("capital_balance") }}</th>
+          <th>{{ t("capital_note") }}</th>
+          <th>{{ t("capital_user") }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in capital_transactions %}
+        <tr>
+          <td>{{ tx.created_at.strftime("%d.%m.%Y %H:%M") if tx.created_at else "" }}</td>
+          <td>
+            <span class="badge badge--{{ 'paid' if tx.type in ('deposit','sale') else ('danger' if tx.type in ('withdrawal','purchase') else 'active') }}">
+              {{ t("capital_type_" ~ tx.type) }}
+            </span>
+          </td>
+          <td class="num">{{ "%.2f"|format(tx.amount) }}</td>
+          <td class="num"><b>{{ "%.2f"|format(tx.balance) }}</b></td>
+          <td class="small">{{ tx.note or "—" }}</td>
+          <td class="small">{{ tx.user_name or tx.user_email or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty" style="margin-top:1rem;">{{ t("capital_no_transactions") }}</div>
+  {% endif %}
+</div>
+{% endif %}
+
 {# ============ ADMIN ALATI ============ #}
 {% if current_user.role == 'admin' %}
 <div class="admin-tools">

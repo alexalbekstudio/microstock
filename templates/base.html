@@ -11,12 +11,19 @@
 <div class="layout">
 
   {# ============ SIDEBAR ============ #}
-  <aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar">
+    <div class="sidebar__brand">
+      <img src="{{ url_for('static', filename='img/logo-icon.png') }}"
+           alt="ALEXANDAR" class="sidebar__brand-icon">
+      <img src="{{ url_for('static', filename='img/logo-wordmark.png') }}"
+           alt="ALEXANDAR" class="sidebar__brand-wordmark">
+    </div>
+
     <div class="sidebar__logo">
       <span>📦</span> MicroStock
     </div>
 
-        <nav class="sidebar__nav">
+    <nav class="sidebar__nav">
       {% set nav = request.endpoint or '' %}
 
       <div class="sidebar__group">{{ t("group_main") }}</div>
@@ -81,7 +88,7 @@
       {% endif %}
     </nav>
 
-        {% if current_user.is_authenticated %}
+    {% if current_user.is_authenticated %}
     <div class="sidebar__footer">
       <a href="{{ url_for('auth.profile') }}"
          class="sidebar__link {{ 'active' if nav == 'auth.profile' }}">
@@ -158,6 +165,28 @@
       {% endwith %}
 
       {% block content %}{% endblock %}
+      
+      <footer class="site-footer">
+        <div class="site-footer__box">
+
+          <div class="site-footer__brand">
+            <img src="{{ url_for('static', filename='img/logo-wordmark.png') }}"
+                 alt="ALEXANDAR" class="site-footer__wordmark">
+            <span class="site-footer__studio">Studio</span>
+          </div>
+
+          <span class="site-footer__copy">
+            © 2026 ALEXANDAR Studio. {{ t("all_rights_reserved") }}
+          </span>
+
+          <div class="site-footer__info">
+            <a href="mailto:alexalbekstudio.design@gmail.com">
+              alexalbekstudio.design@gmail.com
+            </a>
+          </div>
+          
+        </div>
+      </footer>
     </main>
   </div>
 </div>

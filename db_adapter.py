@@ -97,8 +97,8 @@ def _get_pool() -> pg_pool.SimpleConnectionPool:
         dsn = _database_url()
         log.info("Kreiram PostgreSQL connection pool")
         _POOL = pg_pool.SimpleConnectionPool(
-            minconn=1,
-            maxconn=5,
+            minconn=2,
+            maxconn=10,           # ← povećano sa 5
             dsn=dsn,
             cursor_factory=psycopg2.extras.RealDictCursor,
         )
@@ -123,9 +123,7 @@ class _ConnWrapper:
     # --- izvršavanje ---
 
     def execute(self, sql: str, params=None):
-        # Automatska konverzija ? -> %s (da ostali fajlovi ne moraju da se menjaju)
         sql = sql.replace("?", "%s")
-        
         cur = self._raw.cursor()
         try:
             cur.execute(sql, params or ())
@@ -134,7 +132,6 @@ class _ConnWrapper:
             cur.close()
             raise
         return cur
-
     def executemany(self, sql: str, seq_of_params):
         sql = sql.replace("?", "%s")
         cur = self._raw.cursor()
@@ -164,12 +161,11 @@ class _ConnWrapper:
         self._raw.rollback()
 
     def close(self):
-        """Vraća konekciju u pool umesto pravog zatvaranja."""
         if self._closed:
             return
         self._closed = True
         try:
-            self._raw.rollback()  # očisti eventualnu otvorenu transakciju
+            self._raw.rollback()
         except Exception:
             pass
         try:
@@ -201,10 +197,6 @@ class _ConnWrapper:
 
 
 def connect():
-    """
-    Vraća _ConnWrapper oko psycopg2 konekcije iz pool-a.
-    Pozivalac je odgovoran da pozove .close() (ili koristi `with connect() as c:`).
-    """
     raw = _get_pool().getconn()
     return _ConnWrapper(raw, _get_pool())
 

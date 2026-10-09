@@ -508,4 +508,29 @@ TRANSLATIONS = {
     "tool_test_report_week_en_desc":  "Pošalji nedeljni izveštaj na engleskom",
     "tool_test_report_month_en":      "Test mesečni (EN)",
     "tool_test_report_month_en_desc": "Pošalji mesečni izveštaj na engleskom",
+
+    "all_rights_reserved": "Sva prava zadržana.",
+
+    # Kapital
+"capital_title": "Kapital",
+"capital_current": "Trenutno stanje",
+"capital_type": "Tip transakcije",
+"capital_type_deposit": "Uplata",
+"capital_type_withdrawal": "Isplata",
+"capital_type_purchase": "Kupovina",
+"capital_type_sale": "Prodaja",
+"capital_type_adjustment": "Korekcija",
+"capital_amount": "Iznos (RSD)",
+"capital_note": "Napomena",
+"capital_note_placeholder": "npr. uplata za novu robu",
+"capital_add": "Dodaj transakciju",
+"capital_history": "Istorija transakcija",
+"capital_date": "Datum",
+"capital_balance": "Stanje posle",
+"capital_user": "Korisnik",
+"capital_no_transactions": "Nema transakcija. Dodaj prvu uplatu iznad.",
+"all_rights_reserved": "Sva prava zadržana.",
+
+"capital_sales": "prodaja",
+"capital_purchases": "kupovina",
 }

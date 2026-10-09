@@ -17,6 +17,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from db_adapter import connect
 
+import capital as capital_mod
 
 # ==================== USER MODEL ====================
 
@@ -238,5 +239,40 @@ def profile():
         conn.close()
         flash("Profil sačuvan.", "ok")
         return redirect(url_for("auth.profile"))
+    
+    capital_current = capital_mod.get_current_capital()
+    capital_transactions = capital_mod.list_transactions(limit=50)
 
-    return render_template("profile.html")
+    return render_template(
+        "profile.html",
+        capital_current=capital_current,
+        capital_transactions=capital_transactions,
+    )
+
+# ==================== CAPITAL RUTE (samo admin) ====================
+
+@auth_bp.route("/capital/add", methods=["POST"])
+@login_required
+def capital_add():
+    if current_user.role != "admin":
+        flash("Samo admin može da menja kapital.", "err")
+        return redirect(url_for("auth.profile"))
+
+    tx_type = request.form.get("type", "").strip()
+    amount  = request.form.get("amount", "").strip()
+    note    = request.form.get("note", "").strip()
+
+    import capital as capital_mod
+    ok, new_balance, msg = capital_mod.add_transaction(
+        user_id=current_user.id,
+        tx_type=tx_type,
+        amount=amount,
+        note=note,
+    )
+
+    if ok:
+        flash(f"{msg} Novo stanje: {new_balance:,.2f} RSD", "ok")
+    else:
+        flash(msg, "err")
+
+    return redirect(url_for("auth.profile"))

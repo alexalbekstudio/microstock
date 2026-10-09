@@ -1,0 +1,6 @@
+Order ID,Buyer Name,Item Name,SKU,Quantity,Price,Status,Order Date,Note from Buyer
+ET-1001,Ana Petrović,Handmade Ceramic Mug,MUG-001,2,15.00,completed,2026-10-01,Please wrap carefully
+ET-1002,Marko Jovanović,Wooden Phone Stand,STAND-002,1,22.50,completed,2026-10-02,
+ET-1003,Jelena Nikolić,Handmade Ceramic Mug,MUG-001,1,15.00,completed,2026-10-02,Gift wrap please
+ET-1004,Stefan Ilić,Leather Keychain,KEY-003,3,8.00,completed,2026-10-03,
+ET-1005,Milica Stojanović,Wooden Phone Stand,STAND-002,2,22.50,completed,2026-10-03,
