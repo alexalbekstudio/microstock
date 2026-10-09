@@ -33,3 +33,7 @@ Thumbs.db
 backups/
 
 *.pyc
+
+backups/
+pg_backup_*.json
+migracija.sql
