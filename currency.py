@@ -132,20 +132,11 @@ def get_display_currency():
 
 
 def display_money(amount_rsd, force_currency=None):
-    """Prikazuje iznos konvertovan u izabranu valutu."""
-    try:
-        from flask import session, has_request_context
-        from flask_login import current_user
-
-        if has_request_context():
-            sess_currency = session.get("currency", "NEMA")
-            user_currency = getattr(current_user, "currency", "NEMA") if current_user else "NEMA"
-            print(f"[display_money] session={sess_currency}, user={user_currency}, force={force_currency}")
-        else:
-            print(f"[display_money] NEMA REQUEST CONTEXT")
-    except Exception as e:
-        print(f"[display_money] debug greška: {e}")
-
+    """
+    Prikazuje iznos konvertovan u izabranu valutu.
+    Ako kurs nije dostupan — prikazuje iznos u RSD (fallback).
+    NIKAD ne puca.
+    """
     currency = force_currency or get_display_currency()
 
     if amount_rsd is None:
@@ -161,8 +152,7 @@ def display_money(amount_rsd, force_currency=None):
 
     try:
         converted = convert(amount_rsd, BASE_CURRENCY, currency)
-    except Exception as e:
-        print(f"[display_money] convert greška: {e}")
+    except Exception:
         return format_money(amount_rsd, "RSD")
 
     return format_money(converted, currency)
