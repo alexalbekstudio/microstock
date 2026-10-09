@@ -95,7 +95,7 @@
       <tbody>
         {% for tx in capital_transactions %}
         <tr>
-          <td>{{ tx.created_at.strftime("%d.%m.%Y %H:%M") if tx.created_at else "" }}</td>
+          <td>{{ tx.created_at_formatted or tx.created_at or "—" }}</td>
           <td>
             <span class="badge badge--{{ 'paid' if tx.type in ('deposit','sale') else ('danger' if tx.type in ('withdrawal','purchase') else 'active') }}">
               {{ t("capital_type_" ~ tx.type) }}

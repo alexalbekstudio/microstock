@@ -1,6 +1,6 @@
 // MicroStock Service Worker
 // Verzija — menjaj kad menjaš keš
-const CACHE_VERSION = 'microstock-v1';
+const CACHE_VERSION = 'microstock-v2';   // bilo v1, sad v2
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -55,7 +55,20 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(fetch(request));
     return;
   }
+  // Preskoči keširanje za set-language i set-currency (moraju uvek sa mreže)
+  if (url.pathname.startsWith('/set-language/') ||
+      url.pathname.startsWith('/set-currency/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
 
+  // Preskoči keširanje za auth (login/logout)
+  if (url.pathname.startsWith('/login') ||
+      url.pathname.startsWith('/logout') ||
+      url.pathname.startsWith('/admin/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
   // HTML stranice — network-first, fallback na offline
   if (request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(

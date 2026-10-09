@@ -178,7 +178,7 @@ def list_all_rates():
     """
     Vraća sve trenutne kurseve iz exchange_rates (najnoviji po paru).
     Format: [{"source": "EUR", "target": "RSD", "rate": 117.2,
-              "rate_date": date, "fetched_at": datetime}, ...]
+              "rate_date": "09.10.2026", "fetched_at": "09.10.2026 14:30"}, ...]
     """
     conn = connect()
     try:
@@ -191,16 +191,28 @@ def list_all_rates():
     finally:
         conn.close()
 
-    return [
-        {
+    result = []
+    for r in rows:
+        fetched = r["fetched_at"]
+        if fetched and hasattr(fetched, "strftime"):
+            fetched = fetched.strftime("%d.%m.%Y %H:%M")
+        elif fetched:
+            fetched = str(fetched)
+
+        rate_date = r["rate_date"]
+        if rate_date and hasattr(rate_date, "strftime"):
+            rate_date = rate_date.strftime("%d.%m.%Y")
+        elif rate_date:
+            rate_date = str(rate_date)
+
+        result.append({
             "source": r["source_currency"],
             "target": r["target_currency"],
             "rate": float(r["rate"]),
-            "rate_date": r["rate_date"],
-            "fetched_at": r["fetched_at"],
-        }
-        for r in rows
-    ]
+            "rate_date": rate_date,
+            "fetched_at": fetched,
+        })
+    return result
 
 
 def set_manual_rate(source, target, rate, rate_date=None):

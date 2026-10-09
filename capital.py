@@ -38,7 +38,7 @@ def get_current_capital():
 
 
 def list_transactions(limit=50):
-    """Vraća poslednjih N transakcija."""
+    """Vraća poslednjih N transakcija (sa formatiranim datumom)."""
     conn = connect()
     rows = conn.execute("""
         SELECT ct.*, u.email AS user_email, u.name AS user_name
@@ -48,7 +48,19 @@ def list_transactions(limit=50):
         LIMIT %s
     """, (limit,)).fetchall()
     conn.close()
-    return rows
+
+    result = []
+    for r in rows:
+        d = dict(r)
+        created = d.get("created_at")
+        if created and hasattr(created, "strftime"):
+            d["created_at_formatted"] = created.strftime("%d.%m.%Y %H:%M")
+        elif created:
+            d["created_at_formatted"] = str(created)
+        else:
+            d["created_at_formatted"] = "—"
+        result.append(d)
+    return result
 
 
 def add_transaction(user_id, tx_type, amount, note=""):

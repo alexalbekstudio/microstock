@@ -43,9 +43,7 @@
           {% endif %}
         </td>
         <td>{{ r.rate_date or "—" }}</td>
-        <td class="small muted">
-          {{ r.fetched_at.strftime("%d.%m.%Y %H:%M") if r.fetched_at else "—" }}
-        </td>
+        <td class="small muted">{{ r.fetched_at or "—" }}</td>
       </tr>
       {% endfor %}
     </tbody>
