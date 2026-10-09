@@ -145,7 +145,7 @@ def get_cached_rate(source, target, today_only=False):
                 SELECT source_currency, target_currency, rate, rate_date
                 FROM exchange_rates
                 WHERE source_currency = %s AND target_currency = %s
-                  AND rate_date = CURRENT_DATE
+                  AND rate_date::text = CURRENT_DATE::text
                 ORDER BY rate_date DESC
                 LIMIT 1
             """, (source, target)).fetchone()
