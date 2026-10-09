@@ -210,6 +210,25 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+  const CURRENCY_CODE = "{{ current_currency }}";
+  const CURRENCY_SYMBOL = CURRENCY_CODE === "RSD" ? "din"
+                        : CURRENCY_CODE === "EUR" ? "€"
+                        : "$";
+
+  // Koristi globalni CURRENCY_RATES iz base.html
+  const EUR_RATE = {{ eur_rate|default(117.2) }};
+  const USD_RATE = {{ usd_rate|default(108.5) }};
+  const RATES = { RSD: 1, EUR: EUR_RATE, USD: USD_RATE };
+
+  function toDisplay(rsd) {
+    if (CURRENCY_CODE === "RSD") return Number(rsd);
+    return Number(rsd) / RATES[CURRENCY_CODE];
+  }
+
+  function fmtTooltip(val) {
+    return Number(toDisplay(val)).toFixed(2) + " " + CURRENCY_SYMBOL;
+  }
+
   const trendData = {{ trend|tojson }};
   if (trendData.length > 0) {
     new Chart(document.getElementById('ccTrend'), {
@@ -225,9 +244,21 @@
             tension: 0.3, fill: true }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false,
-                 plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
-                 scales: { y: { beginAtZero: true } } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                return `${ctx.dataset.label}: ${fmtTooltip(ctx.parsed.y)}`;
+              }
+            }
+          }
+        },
+        scales: { y: { beginAtZero: true } }
+      }
     });
   } else {
     document.getElementById('ccTrend').parentElement.innerHTML =
@@ -245,8 +276,20 @@
           backgroundColor: ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6']
         }]
       },
-      options: { responsive: true, maintainAspectRatio: false,
-                 plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                return `${ctx.label}: ${fmtTooltip(ctx.parsed)}`;
+              }
+            }
+          }
+        }
+      }
     });
   } else {
     document.getElementById('ccChannel').parentElement.innerHTML =

@@ -188,7 +188,27 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+  const CURRENCY_CODE = "{{ current_currency }}";
+  const CURRENCY_SYMBOL = CURRENCY_CODE === "RSD" ? "din"
+                        : CURRENCY_CODE === "EUR" ? "€"
+                        : "$";
+
+  // Za konverziju u tooltip-u (vrednosti u bazi su RSD)
+  const EUR_RATE = {{ eur_rate|default(117.2) }};
+  const USD_RATE = {{ usd_rate|default(108.5) }};
+  const RATES = { RSD: 1, EUR: EUR_RATE, USD: USD_RATE };
+
+  function toDisplay(rsd) {
+    if (CURRENCY_CODE === "RSD") return Number(rsd);
+    return Number(rsd) / RATES[CURRENCY_CODE];
+  }
+
+  function fmtTooltip(val) {
+    return Number(toDisplay(val)).toFixed(2) + " " + CURRENCY_SYMBOL;
+  }
+
   const trendData = {{ trend|tojson }};
   if (trendData.length > 0) {
     new Chart(document.getElementById('trendChart'), {
@@ -204,9 +224,21 @@
             tension: 0.3, fill: true }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false,
-                 plugins: { legend: { position: 'bottom' } },
-                 scales: { y: { beginAtZero: true } } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                return `${ctx.dataset.label}: ${fmtTooltip(ctx.parsed.y)}`;
+              }
+            }
+          }
+        },
+        scales: { y: { beginAtZero: true } }
+      }
     });
   } else {
     document.getElementById('trendChart').parentElement.innerHTML =
@@ -226,9 +258,21 @@
           { label: '{{ t("shipping") }}',    data: channelData.map(c => c.shipping), backgroundColor: 'rgba(245,158,11,.75)' }
         ]
       },
-      options: { responsive: true, maintainAspectRatio: false,
-                 plugins: { legend: { position: 'bottom' } },
-                 scales: { y: { beginAtZero: true } } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                return `${ctx.dataset.label}: ${fmtTooltip(ctx.parsed.y)}`;
+              }
+            }
+          }
+        },
+        scales: { y: { beginAtZero: true } }
+      }
     });
   } else {
     document.getElementById('channelChart').parentElement.innerHTML =

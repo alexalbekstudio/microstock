@@ -51,20 +51,20 @@ class InvoicePDF(FPDF):
                   align="C")
 
 
-def generate_invoice_pdf(order, items, subtotal, fee, total):
-    """Vraća bytes PDF fajla za datu narudžbinu."""
+def generate_invoice_pdf(order, items, subtotal, fee, total,
+                          currency="RSD", currency_symbol="din"):
+    """Vraća bytes PDF fajla za datu narudžbinu u izabranoj valuti."""
 
     pdf = InvoicePDF(orientation="P", unit="mm", format="A4")
 
-    # Registruj DejaVu fontove
     pdf.add_font("DejaVu", "", str(FONT_REGULAR))
     pdf.add_font("DejaVu", "B", str(FONT_BOLD))
-    pdf.add_font("DejaVu", "I", str(FONT_REGULAR))   # italic = regular (DejaVu nema italic ttf)
+    pdf.add_font("DejaVu", "I", str(FONT_REGULAR))
 
     pdf.set_auto_page_break(auto=True, margin=20)
     pdf.add_page()
 
-    # ===== Zaglavlje desno: broj računa i datum =====
+    # ===== Zaglavlje desno =====
     pdf.set_xy(110, 12)
     pdf.set_font("DejaVu", "B", 16)
     pdf.set_text_color(*CRNA)
@@ -77,12 +77,13 @@ def generate_invoice_pdf(order, items, subtotal, fee, total):
     pdf.cell(90, 5, f"Kanal: {order['channel']}", align="R", ln=True)
     pdf.set_x(110)
     pdf.cell(90, 5, f"Status: {order['status']}", align="R", ln=True)
+    pdf.set_x(110)
+    pdf.cell(90, 5, f"Valuta: {currency}", align="R", ln=True)
     pdf.set_text_color(0, 0, 0)
 
-    # Pomeri se ispod headera
     pdf.set_y(45)
 
-    # ===== Info box - Kupac i podaci =====
+    # ===== Info box =====
     pdf.set_fill_color(*SVETLO_SIVA)
     pdf.set_font("DejaVu", "B", 9)
     pdf.set_text_color(*SIVA)
@@ -98,16 +99,16 @@ def generate_invoice_pdf(order, items, subtotal, fee, total):
     pdf.cell(90, 7, f"  Broj: #{order['id']:05d}", ln=True)
 
     pdf.set_font("DejaVu", "", 10)
-    if order["note"] if "note" in order.keys() else None:
+    if order.get("note"):
         pdf.cell(90, 6, "  " + str(order["note"])[:50], ln=False)
     else:
         pdf.cell(90, 6, "", ln=False)
     pdf.cell(10, 6, "", ln=False)
     pdf.cell(90, 6, f"  Izvor: {order.get('source') or 'manual'}", ln=True)
 
-    pdf.cell(90, 6, f"  Izvor: {order['source'] if 'source' in order.keys() else 'manual'}", ln=True)
+    pdf.cell(90, 6, "", ln=False)
     pdf.cell(10, 6, "", ln=False)
-    if "external_id" in order.keys() and order["external_id"]:
+    if order.get("external_id"):
         pdf.cell(90, 6, f"  Ref: {order['external_id']}", ln=True)
 
     pdf.ln(6)
@@ -118,7 +119,7 @@ def generate_invoice_pdf(order, items, subtotal, fee, total):
     pdf.set_font("DejaVu", "B", 9)
     pdf.cell(110, 8, "  PROIZVOD", fill=True)
     pdf.cell(20, 8, "KOL.", fill=True, align="C")
-    pdf.cell(30, 8, "CENA", fill=True, align="R")
+    pdf.cell(30, 8, f"CENA ({currency_symbol})", fill=True, align="R")
     pdf.cell(30, 8, "UKUPNO  ", fill=True, align="R", ln=True)
 
     pdf.set_text_color(0, 0, 0)
@@ -131,11 +132,10 @@ def generate_invoice_pdf(order, items, subtotal, fee, total):
             pdf.set_fill_color(255, 255, 255)
         pdf.cell(110, 8, "  " + str(it["product_name"])[:45], fill=True)
         pdf.cell(20, 8, str(it["qty"]), fill=True, align="C")
-        pdf.cell(30, 8, f"{it['unit_price']:.2f}", fill=True, align="R")
-        pdf.cell(30, 8, f"{it['qty'] * it['unit_price']:.2f}  ", fill=True, align="R", ln=True)
+        pdf.cell(30, 8, f"{float(it['unit_price']):.2f}", fill=True, align="R")
+        pdf.cell(30, 8, f"{float(it['qty']) * float(it['unit_price']):.2f}  ", fill=True, align="R", ln=True)
         fill = not fill
 
-        # SKU sitno ispod
         pdf.set_font("DejaVu", "I", 8)
         pdf.set_text_color(*SIVA)
         pdf.cell(110, 4, "  " + str(it["sku"]), ln=True)
@@ -150,16 +150,15 @@ def generate_invoice_pdf(order, items, subtotal, fee, total):
     pdf.set_text_color(*SIVA)
     pdf.cell(45, 6, "Osnova:", align="R")
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(35, 6, f"{subtotal:.2f} RSD", align="R", ln=True)
+    pdf.cell(35, 6, f"{float(subtotal):.2f} {currency_symbol}", align="R", ln=True)
 
-    if fee > 0:
+    if float(fee) > 0:
         pdf.set_x(120)
         pdf.set_text_color(*SIVA)
         pdf.cell(45, 6, f"Provizija ({order['fee_percent']}%):", align="R")
         pdf.set_text_color(0, 0, 0)
-        pdf.cell(35, 6, f"{fee:.2f} RSD", align="R", ln=True)
+        pdf.cell(35, 6, f"{float(fee):.2f} {currency_symbol}", align="R", ln=True)
 
-    # Linija iznad UKUPNO
     pdf.set_x(120)
     pdf.set_draw_color(*CRNA)
     pdf.set_line_width(0.5)
@@ -171,9 +170,8 @@ def generate_invoice_pdf(order, items, subtotal, fee, total):
     pdf.set_font("DejaVu", "B", 13)
     pdf.set_text_color(*CRNA)
     pdf.cell(45, 8, "UKUPNO:", align="R")
-    pdf.cell(35, 8, f"{total:.2f} RSD", align="R", ln=True)
+    pdf.cell(35, 8, f"{float(total):.2f} {currency_symbol}", align="R", ln=True)
 
-    # ===== Pečat PLAĆENO =====
     pdf.ln(10)
     pdf.set_x(120)
     pdf.set_text_color(*ZELENA)
@@ -182,5 +180,4 @@ def generate_invoice_pdf(order, items, subtotal, fee, total):
     pdf.set_font("DejaVu", "B", 10)
     pdf.cell(40, 10, "PLAĆENO", border=1, align="C", ln=True)
 
-    # ===== Output =====
     return bytes(pdf.output())

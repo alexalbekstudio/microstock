@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}MicroStock{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script>
+  window.CURRENCY_RATES = {
+    RSD: 1,
+    EUR: {{ eur_rate|default(117.2) }},
+    USD: {{ usd_rate|default(108.5) }}
+  };
+  window.BASE_CURRENCY = "RSD";
+</script>
 </head>
 <body>
 

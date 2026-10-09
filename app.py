@@ -39,6 +39,8 @@ init_scheduler(app)
 
 # ==================== JINJA GLOBALNE ====================
 
+# ==================== JINJA GLOBALNE ====================
+
 @app.context_processor
 def inject_i18n_and_currency():
     """Ubacuje t(), display_money(), jezik i valutu u sve template-e."""
@@ -49,6 +51,28 @@ def inject_i18n_and_currency():
         "available_languages": available_languages(),
         "current_currency": get_display_currency(),
         "available_currencies": SUPPORTED_CURRENCIES,
+    }
+
+
+@app.context_processor
+def inject_currency_rates():
+    """
+    Ubacuje kurs EUR/USD → RSD u sve template-e.
+    Koristi se u JS-u za konverziju u Chart.js tooltip-ovima.
+    Nikad ne puca — fallback vrednosti ako NBS API nije dostupan.
+    """
+    from currency_rates import get_rate
+    try:
+        eur = get_rate("EUR", "RSD")["rate"]
+    except Exception:
+        eur = 117.2
+    try:
+        usd = get_rate("USD", "RSD")["rate"]
+    except Exception:
+        usd = 108.5
+    return {
+        "eur_rate": eur,
+        "usd_rate": usd,
     }
 
 # ==================== JEZIK I VALUTA ====================
@@ -112,6 +136,20 @@ def index():
     days = request.args.get("days", type=int) or 30
     import dashboard
     data = dashboard.control_center(days)
+
+    # Kurs za JS konverziju u chart-ovima
+    from currency_rates import get_rate
+    try:
+        eur_rate = get_rate("EUR", "RSD")["rate"]
+    except Exception:
+        eur_rate = 117.2
+    try:
+        usd_rate = get_rate("USD", "RSD")["rate"]
+    except Exception:
+        usd_rate = 108.5
+
+    data["eur_rate"] = eur_rate
+    data["usd_rate"] = usd_rate
     return render_template("index.html", **data)
 
 
@@ -302,18 +340,31 @@ def invoice_pdf(order_id):
     if not order:
         abort(404)
 
-    # Pretvori sqlite3.Row u dict (da radi .get())
     order = dict(order)
-    items = [dict(i) for i in items]   # ← dodatno, da bude sigurno
+    items = [dict(i) for i in items]
 
-    subtotal = sum(float(i["qty"]) * float(i["unit_price"]) for i in items)
-    fee = subtotal * (float(order["fee_percent"] or 0) / 100.0)
-    total = subtotal + fee
+    from currency import get_display_currency, convert, SUPPORTED_CURRENCIES
+    currency = get_display_currency()
+    symbol = SUPPORTED_CURRENCIES[currency]["symbol"]
+
+    subtotal_rsd = sum(float(i["qty"]) * float(i["unit_price"]) for i in items)
+    fee_rsd = subtotal_rsd * (float(order["fee_percent"] or 0) / 100.0)
+    total_rsd = subtotal_rsd + fee_rsd
+
+    if currency != "RSD":
+        subtotal = convert(subtotal_rsd, "RSD", currency)
+        fee = convert(fee_rsd, "RSD", currency)
+        total = convert(total_rsd, "RSD", currency)
+    else:
+        subtotal, fee, total = subtotal_rsd, fee_rsd, total_rsd
 
     from pdf import generate_invoice_pdf
-    pdf_bytes = generate_invoice_pdf(order, items, subtotal, fee, total)
+    pdf_bytes = generate_invoice_pdf(
+        order, items, subtotal, fee, total,
+        currency=currency, currency_symbol=symbol,
+    )
 
-    filename = f"racun-{order_id:05d}.pdf"
+    filename = f"racun-{order_id:05d}-{currency}.pdf"
     return send_file(
         io.BytesIO(pdf_bytes),
         mimetype="application/pdf",
@@ -486,7 +537,19 @@ def api_low_stock():
 @login_required
 @role_required(*ALL_ROLES)
 def analytics_view():
-    days = request.args.get("days", type=int)   # None = sve vreme
+    days = request.args.get("days", type=int)
+
+    # Kurs za JS konverziju
+    from currency_rates import get_rate
+    try:
+        eur_rate = get_rate("EUR", "RSD")["rate"]
+    except Exception:
+        eur_rate = 117.2
+    try:
+        usd_rate = get_rate("USD", "RSD")["rate"]
+    except Exception:
+        usd_rate = 108.5
+
     return render_template(
         "analytics.html",
         days=days,
@@ -496,6 +559,8 @@ def analytics_view():
         trend=analytics.trend(days or 30),
         loss=analytics.loss_makers(days),
         customers=analytics.top_customers(days, limit=10),
+        eur_rate=eur_rate,
+        usd_rate=usd_rate,
     )
 
 # ==================== KALKULATOR CENA ====================

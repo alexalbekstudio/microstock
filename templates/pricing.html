@@ -189,11 +189,23 @@
 (function() {
   const $ = id => document.getElementById(id);
 
+  const DISPLAY_CURRENCY = "{{ current_currency }}";
+  const CURRENCY_CONFIG = {
+    RSD: { locale: 'sr-RS', symbol: 'din', position: 'suffix', decimals: 0 },
+    EUR: { locale: 'de-DE', symbol: '€',   position: 'prefix', decimals: 2 },
+    USD: { locale: 'en-US', symbol: '$',   position: 'prefix', decimals: 2 },
+  };
+
   function fmt(n) {
     if (isNaN(n) || n === null) return "—";
-    return Number(n).toLocaleString('sr-RS', {
-      minimumFractionDigits: 2, maximumFractionDigits: 2
+    const cfg = CURRENCY_CONFIG[DISPLAY_CURRENCY] || CURRENCY_CONFIG.RSD;
+    const formatted = Number(n).toLocaleString(cfg.locale, {
+      minimumFractionDigits: cfg.decimals,
+      maximumFractionDigits: cfg.decimals
     });
+    return cfg.position === 'prefix'
+      ? `${cfg.symbol}${formatted}`
+      : `${formatted} ${cfg.symbol}`;
   }
 
   function readInputs() {
@@ -233,14 +245,14 @@
 
     const a = calcRecommended(i.cost, i.margin, i.fee, i.shipping, i.tax);
     if (a) {
-      $('out_price').textContent  = fmt(a.price) + " RSD";
-      $('out_profit').textContent = fmt(a.profit) + " RSD";
+      $('out_price').textContent  = fmt(a.price);
+      $('out_profit').textContent = fmt(a.profit);
       $('out_margin').textContent = fmt(a.realMargin) + " %";
       $('out_markup').textContent = fmt(a.markup) + " %";
-      $('out_cost').textContent   = fmt(i.cost) + " RSD";
-      $('out_ship').textContent   = fmt(i.shipping) + " RSD";
-      $('out_fee').textContent    = fmt(a.feeAmt) + " RSD";
-      $('out_tax').textContent    = fmt(a.taxAmt) + " RSD";
+      $('out_cost').textContent   = fmt(i.cost);
+      $('out_ship').textContent   = fmt(i.shipping);
+      $('out_fee').textContent    = fmt(a.feeAmt);
+      $('out_tax').textContent    = fmt(a.taxAmt);
 
       const applyInput = $('apply_price');
       if (applyInput) applyInput.value = a.price.toFixed(2);
@@ -249,13 +261,13 @@
     }
 
     const b = calcAnalyze(i.cost, i.price, i.fee, i.shipping, i.tax);
-    $('out2_profit').textContent = fmt(b.profit) + " RSD";
+    $('out2_profit').textContent = fmt(b.profit);
     $('out2_margin').textContent = fmt(b.realMargin) + " %";
     $('out2_markup').textContent = fmt(b.markup) + " %";
-    $('out2_cost').textContent   = fmt(i.cost) + " RSD";
-    $('out2_ship').textContent   = fmt(i.shipping) + " RSD";
-    $('out2_fee').textContent    = fmt(b.feeAmt) + " RSD";
-    $('out2_tax').textContent    = fmt(b.taxAmt) + " RSD";
+    $('out2_cost').textContent   = fmt(i.cost);
+    $('out2_ship').textContent   = fmt(i.shipping);
+    $('out2_fee').textContent    = fmt(b.feeAmt);
+    $('out2_tax').textContent    = fmt(b.taxAmt);
 
     const h = {
       cost:   $('h_cost'),
