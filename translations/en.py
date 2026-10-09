@@ -574,4 +574,21 @@ TRANSLATIONS = {
     "offline_title": "No internet connection",
     "offline_desc": "Looks like you're offline. Check your internet connection and try again.",
     "offline_retry": "Try again",
+
+        # QR scanner
+    "scan_title": "Scan QR code",
+    "scan_desc": "Point your camera at the product QR code.",
+    "scan_starting": "Starting camera...",
+    "scan_ready": "Camera ready — point at QR code",
+    "scan_camera_error": "Camera error",
+    "scan_detected": "Scanned",
+    "scan_resume": "Scan again",
+    "scan_network_error": "Network error",
+    "scan_manual": "Manual input",
+    "scan_manual_desc": "If camera doesn't work — type SKU or URL manually.",
+    "scan_manual_ph": "SKU or URL (e.g. MUG-001)",
+    "scan_search": "Search",
+    "scan_add_to_order": "Add to order",
+    "scan_order_error": "Error creating order",
+    "qr_code": "QR code",
 }

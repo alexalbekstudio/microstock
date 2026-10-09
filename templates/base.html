@@ -84,7 +84,10 @@
         class="sidebar__link {{ 'active' if nav == 'pricing_history' }}">
         <span class="sidebar__icon">📜</span> {{ t("price_history") }}
       </a>
-
+      <a href="{{ url_for('scan_view') }}"
+         class="sidebar__link {{ 'active' if nav == 'scan_view' }}">
+        <span class="sidebar__icon">📷</span> {{ t("scan_title") }}
+      </a>
       {% if current_user.is_authenticated and current_user.role == 'admin' %}
       <div class="sidebar__group">{{ t("group_admin") }}</div>
       <a href="{{ url_for('admin_users') }}"

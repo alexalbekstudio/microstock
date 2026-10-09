@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}{{ t("scan_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}📷 {{ t("scan_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>📷 {{ t("scan_title") }}</h1>
+  <a href="{{ url_for('products') }}" class="btn btn--secondary">← {{ t("back") }}</a>
+</div>
+
+<p class="muted">{{ t("scan_desc") }}</p>
+
+{# ============ KAMERA ============ #}
+<div class="card">
+  <div id="reader" style="width:100%; max-width:500px; margin:0 auto;"></div>
+
+  <div id="scan-status" class="muted small" style="text-align:center; margin-top:1rem;">
+    {{ t("scan_starting") }}
+  </div>
+</div>
+
+{# ============ REZULTAT ============ #}
+<div id="scan-result" class="card" style="display:none; max-width:500px; margin:1rem auto;">
+  {# Dinamički popunjen kroz JS #}
+</div>
+
+{# ============ RUČNI UNOS ============ #}
+<div class="card card--info">
+  <h3>⌨️ {{ t("scan_manual") }}</h3>
+  <p class="muted small">{{ t("scan_manual_desc") }}</p>
+  <form id="manual-form" class="inline-form">
+    <input id="manual-input" type="text"
+           placeholder="{{ t('scan_manual_ph') }}"
+           style="flex:1">
+    <button type="submit" class="btn btn--primary">{{ t("scan_search") }}</button>
+  </form>
+</div>
+
+{# ============ MODAL ZA DODAVANJE U NARUDŽBINU ============ #}
+<div id="order-modal" class="search-modal" style="display:none">
+  <div class="search-modal__backdrop" onclick="closeOrderModal()"></div>
+  <div class="search-modal__box" style="max-width:480px;">
+    <div style="padding:1.25rem">
+      <h3 style="margin-top:0">{{ t("scan_add_to_order") }}</h3>
+      <form id="order-form">
+        <input type="hidden" id="order-product-id">
+        <div class="form-row">
+          <label>{{ t("col_customer") }}</label>
+          <input id="order-customer" required placeholder="npr. Marko Petrović">
+        </div>
+        <div class="form-row">
+          <label>{{ t("col_channel") }}</label>
+          <select id="order-channel" required>
+            {% for c in channels %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-row">
+          <label>{{ t("col_qty") }}</label>
+          <input id="order-qty" type="number" min="1" value="1" required>
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn btn--primary">{{ t("create_order") }}</button>
+          <button type="button" class="btn btn--secondary" onclick="closeOrderModal()">{{ t("cancel") }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+  let html5QrCode = null;
+  let currentProduct = null;
+
+  const status = document.getElementById('scan-status');
+  const result = document.getElementById('scan-result');
+
+  function startScanner() {
+    html5QrCode = new Html5Qrcode("reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    html5QrCode.start(
+      { facingMode: "environment" },
+      config,
+      onScanSuccess,
+      onScanError
+    ).then(() => {
+      status.textContent = "{{ t('scan_ready') }}";
+    }).catch((err) => {
+      status.innerHTML = "⚠️ {{ t('scan_camera_error') }}: " + err;
+    });
+  }
+
+  function onScanSuccess(decodedText) {
+    if (html5QrCode) {
+      html5QrCode.pause(true);
+    }
+    status.textContent = "✅ {{ t('scan_detected') }}: " + decodedText;
+    lookupProduct(decodedText);
+  }
+
+  function onScanError(err) {
+    // Ignoriši — normalno je da se javi dok nema koda u kadru
+  }
+
+  async function lookupProduct(text) {
+    try {
+      const r = await fetch('/api/product-by-url?url=' + encodeURIComponent(text));
+      const data = await r.json();
+
+      if (data.error) {
+        result.style.display = 'block';
+        result.innerHTML = `
+          <h3 style="margin-top:0">⚠️ ${data.error}</h3>
+          <p class="muted small">Kod: <code>${text}</code></p>
+          <div class="btn-row">
+            <button class="btn btn--secondary" onclick="resumeScan()">{{ t("scan_resume") }}</button>
+          </div>
+        `;
+        return;
+      }
+
+      currentProduct = data;
+      renderProduct(data);
+    } catch (err) {
+      result.style.display = 'block';
+      result.innerHTML = `<p class="text-danger">{{ t("scan_network_error") }}</p>`;
+    }
+  }
+
+  function renderProduct(p) {
+    const stockBadge = p.stock <= p.low_stock_at
+      ? `<span class="badge badge--danger">${p.stock} (${t('low_badge') || 'nisko'})</span>`
+      : `<span class="badge badge--success">${p.stock}</span>`;
+
+    result.style.display = 'block';
+    result.innerHTML = `
+      <h3 style="margin-top:0">📦 ${p.name}</h3>
+      <div class="muted small" style="margin-bottom:.5rem">SKU: <code>${p.sku}</code></div>
+      <div style="display:flex; justify-content:space-between; padding:.5rem 0;">
+        <span class="muted">{{ t("price") }}:</span>
+        <b>${p.price_display}</b>
+      </div>
+      <div style="display:flex; justify-content:space-between; padding:.5rem 0;">
+        <span class="muted">{{ t("stock") }}:</span>
+        <b>${stockBadge}</b>
+      </div>
+      <div class="btn-row" style="margin-top:1rem">
+        <button class="btn btn--primary" onclick="openOrderModal()">➕ {{ t("scan_add_to_order") }}</button>
+        <a href="/products/${p.id}" class="btn btn--secondary">👁 {{ t("open") }}</a>
+        <a href="/products/${p.id}/qr.png" class="btn btn--secondary" download>📱 QR</a>
+        <button class="btn btn--ghost" onclick="resumeScan()">{{ t("scan_resume") }}</button>
+      </div>
+    `;
+  }
+
+  function resumeScan() {
+    result.style.display = 'none';
+    currentProduct = null;
+    if (html5QrCode) {
+      html5QrCode.resume();
+    }
+    status.textContent = "{{ t('scan_ready') }}";
+  }
+
+  function openOrderModal() {
+    if (!currentProduct) return;
+    document.getElementById('order-product-id').value = currentProduct.id;
+    document.getElementById('order-qty').value = 1;
+    document.getElementById('order-modal').style.display = 'flex';
+  }
+
+  function closeOrderModal() {
+    document.getElementById('order-modal').style.display = 'none';
+  }
+
+  // Forma za kreiranje narudžbine
+  document.getElementById('order-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pid = document.getElementById('order-product-id').value;
+    const customer = document.getElementById('order-customer').value;
+    const channel = document.getElementById('order-channel').value;
+    const qty = document.getElementById('order-qty').value;
+
+    const fd = new FormData();
+    fd.append('customer_name', customer);
+    fd.append('channel_id', channel);
+    fd.append('product_id[]', pid);
+    fd.append('qty[]', qty);
+
+    try {
+      const r = await fetch('/orders/new', { method: 'POST', body: fd });
+      if (r.redirected || r.ok) {
+        window.location.href = r.url || '/orders';
+      } else {
+        alert('{{ t("scan_order_error") }}');
+      }
+    } catch (err) {
+      alert('{{ t("scan_order_error") }}: ' + err);
+    }
+  });
+
+  // Ručni unos
+  document.getElementById('manual-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const val = document.getElementById('manual-input').value.trim();
+    if (val) lookupProduct(val);
+  });
+
+  // Start kamere
+  startScanner();
+</script>
+{% endblock %}

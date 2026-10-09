@@ -2,7 +2,10 @@
 {% block title %}{{ t("edit_product") }} — MicroStock{% endblock %}
 {% block topbar_title %}📦 {{ t("edit_product") }}{% endblock %}
 {% block content %}
-
+<div class="page-header__actions">
+  <a href="{{ url_for('product_qr_png', pid=p.id) }}"
+     class="btn btn--secondary" download>📱 {{ t("qr_code") }}</a>
+</div>
 <div class="page-header">
   <h1>✏️ {{ t("edit_product") }}</h1>
   <a href="/products" class="btn btn--secondary">← {{ t("back") }}</a>

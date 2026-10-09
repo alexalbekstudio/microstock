@@ -575,4 +575,21 @@ TRANSLATIONS = {
     "offline_title": "Nema internet veze",
     "offline_desc": "Izgleda da si offline. Proveri internet konekciju i pokušaj ponovo.",
     "offline_retry": "Pokušaj ponovo",
+
+        # QR skener
+    "scan_title": "Skeniraj QR kod",
+    "scan_desc": "Usmeri kameru ka QR kodu proizvoda.",
+    "scan_starting": "Pokrećem kameru...",
+    "scan_ready": "Kamera spremna — usmeri ka QR kodu",
+    "scan_camera_error": "Greška sa kamerom",
+    "scan_detected": "Skenirano",
+    "scan_resume": "Skeniraj ponovo",
+    "scan_network_error": "Greška u mreži",
+    "scan_manual": "Ručni unos",
+    "scan_manual_desc": "Ako kamera ne radi — ukucaj SKU ili URL ručno.",
+    "scan_manual_ph": "SKU ili URL (npr. MUG-001)",
+    "scan_search": "Traži",
+    "scan_add_to_order": "Dodaj u narudžbinu",
+    "scan_order_error": "Greška pri kreiranju narudžbine",
+    "qr_code": "QR kod",
 }

@@ -750,6 +750,104 @@ def manifest():
     from flask import send_from_directory
     return send_from_directory("static", "manifest.json", mimetype="application/manifest+json")
 
+# ==================== QR SKENER ====================
+
+@app.route("/scan")
+@login_required
+@role_required(*ALL_ROLES)
+def scan_view():
+    """Stranica za skeniranje QR koda."""
+    return render_template("scan.html")
+
+
+@app.route("/api/product-by-url")
+@login_required
+@role_required(*ALL_ROLES)
+def api_product_by_url():
+    """
+    Prima URL (ili SKU) iz QR koda, vraća proizvod.
+    Primer: /api/product-by-url?url=https://microstock.onrender.com/products/123
+    """
+    raw = request.args.get("url", "").strip()
+    if not raw:
+        return jsonify({"error": "Nema URL-a"}), 400
+
+    product_id = None
+
+    # Ako je URL — parsiraj ID iz /products/<id>
+    if "/products/" in raw:
+        try:
+            after = raw.split("/products/")[1]
+            product_id = int(after.split("/")[0].split("?")[0])
+        except (IndexError, ValueError):
+            pass
+
+    # Ako nije URL — probaj kao SKU
+    if not product_id:
+        conn = connect()
+        try:
+            row = conn.execute(
+                "SELECT id FROM products WHERE sku = %s AND active = 1",
+                (raw,)
+            ).fetchone()
+            if row:
+                product_id = row["id"]
+        finally:
+            conn.close()
+
+    if not product_id:
+        return jsonify({"error": "Proizvod nije nađen", "raw": raw}), 404
+
+    p = models.get_product(product_id)
+    if not p:
+        return jsonify({"error": "Proizvod ne postoji"}), 404
+
+    p = dict(p)
+    return jsonify({
+        "id": p["id"],
+        "sku": p["sku"],
+        "name": p["name"],
+        "price": float(p["price"] or 0),
+        "cost": float(p["cost"] or 0),
+        "stock": int(p["stock"] or 0),
+        "low_stock_at": int(p["low_stock_at"] or 3),
+        "price_display": display_money(p["price"] or 0),
+    })
+
+# ==================== QR GENERATOR ====================
+
+@app.route("/products/<int:pid>/qr.png")
+@login_required
+@role_required(*ALL_ROLES)
+def product_qr_png(pid):
+    """Generiše QR kod za proizvod (URL do stranice proizvoda)."""
+    p = models.get_product(pid)
+    if not p:
+        abort(404)
+
+    import qrcode
+    import io as _io
+
+    # URL do stranice proizvoda (javni)
+    base_url = os.getenv("PUBLIC_URL", "https://microstock.onrender.com")
+    product_url = f"{base_url}/products/{pid}"
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=2,
+    )
+    qr.add_data(product_url)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = _io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+
+    return send_file(buf, mimetype="image/png", download_name=f"qr-{p['sku']}.png")
+
 # ==================== ANALITIKA (ALAT #2) ====================
 
 @app.route("/analytics")
