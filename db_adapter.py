@@ -16,6 +16,15 @@ from contextlib import contextmanager
 
 import psycopg2
 import psycopg2.extras
+import psycopg2.extensions
+
+# Konvertuj Decimal u float automatski
+DEC2FLOAT = psycopg2.extensions.new_type(
+    psycopg2.extensions.DECIMAL.values,
+    'DEC2FLOAT',
+    lambda value, curs: float(value) if value is not None else None
+)
+psycopg2.extensions.register_type(DEC2FLOAT)
 from psycopg2 import pool as pg_pool
 
 
@@ -98,9 +107,10 @@ def _get_pool() -> pg_pool.SimpleConnectionPool:
         log.info("Kreiram PostgreSQL connection pool")
         _POOL = pg_pool.SimpleConnectionPool(
             minconn=2,
-            maxconn=10,           # ← povećano sa 5
+            maxconn=20,
             dsn=dsn,
             cursor_factory=psycopg2.extras.RealDictCursor,
+            options="-c extra_float_digits=3",
         )
     return _POOL
 

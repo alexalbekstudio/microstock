@@ -50,7 +50,7 @@
   <div class="capital-current">
     <span class="capital-current__label">{{ t("capital_current") }}</span>
     <span class="capital-current__value">
-      {{ "%.2f"|format(capital_current) }} RSD
+      {{ display_money(capital_current) }}
     </span>
   </div>
 
@@ -101,8 +101,8 @@
               {{ t("capital_type_" ~ tx.type) }}
             </span>
           </td>
-          <td class="num">{{ "%.2f"|format(tx.amount) }}</td>
-          <td class="num"><b>{{ "%.2f"|format(tx.balance) }}</b></td>
+          <td class="num">{{ display_money(tx.amount) }}</td>
+          <td class="num"><b>{{ display_money(tx.balance) }}</b></td>
           <td class="small">{{ tx.note or "—" }}</td>
           <td class="small">{{ tx.user_name or tx.user_email or "—" }}</td>
         </tr>

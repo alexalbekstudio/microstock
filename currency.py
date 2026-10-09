@@ -131,13 +131,35 @@ def get_display_currency():
     return BASE_CURRENCY
 
 
-def display_money(amount_rsd):
+def display_money(amount_rsd, force_currency=None):
     """
-    Uzima iznos u RSD i vraća ga formatiranog u korisnikovoj valuti.
+    Prikazuje iznos konvertovan u izabranu valutu.
+    Ako kurs nije dostupan — prikazuje iznos u RSD (fallback).
+    NIKAD ne puca.
     """
-    currency = get_display_currency()
-    if currency == BASE_CURRENCY:
-        return format_money(amount_rsd, BASE_CURRENCY)
+    try:
+        from currency import get_display_currency
+        currency = force_currency or get_display_currency()
+    except Exception:
+        currency = "RSD"
 
-    converted = convert(amount_rsd, BASE_CURRENCY, currency)
+    if amount_rsd is None:
+        amount_rsd = 0
+
+    try:
+        amount_rsd = float(amount_rsd)
+    except (ValueError, TypeError):
+        return str(amount_rsd)
+
+    # Ako je već RSD — samo formatiraj
+    if currency == "RSD" or currency == BASE_CURRENCY:
+        return format_money(amount_rsd, "RSD")
+
+    # Pokušaj konverziju, ali ne pucaj ako nema kursa
+    try:
+        converted = convert(amount_rsd, BASE_CURRENCY, currency)
+    except Exception as e:
+        # Fallback: prikaži u RSD
+        return format_money(amount_rsd, "RSD")
+
     return format_money(converted, currency)

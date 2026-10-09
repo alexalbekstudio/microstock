@@ -117,6 +117,27 @@ def create_order_tx(conn, customer_name, channel_id, items, note="",
 
     return order_id, False
 
+def create_order(customer_name, channel_id, items, note="",
+                 external_id=None, source="manual",
+                 shipping_cost=0, shipping_method=""):
+    """
+    Originalna create_order — otvara svoju konekciju, radi commit/close.
+    Koristi create_order_tx za logiku.
+    """
+    conn = connect()
+    try:
+        order_id, dup = create_order_tx(
+            conn, customer_name, channel_id, items, note,
+            external_id, source, shipping_cost, shipping_method
+        )
+        conn.commit()
+        return order_id, dup
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
 def update_order(order_id, customer_name, channel_id, note, status,
                  shipping_cost=0, shipping_method=""):
     conn = connect()

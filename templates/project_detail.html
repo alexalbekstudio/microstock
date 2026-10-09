@@ -85,15 +85,15 @@
           <tr><th>{{ t("date_col") }}</th><th>{{ t("member") }}</th><th class="num">{{ t("hours") }}</th><th class="num">{{ t("cost_col") }}</th><th></th></tr>
         </thead>
         <tbody>
-          {% for t in time_entries %}
+          {% for entry in time_entries %}
           <tr>
-            <td>{{ t.entry_date }}</td>
-            <td>{{ t.member_name }}</td>
-            <td class="num">{{ "%.2f"|format(t.hours) }}</td>
-            <td class="num">{{ display_money(t.cost) }}</td>
+            <td>{{ entry.entry_date }}</td>
+            <td>{{ entry.member_name }}</td>
+            <td class="num">{{ "%.2f"|format(entry.hours) }}</td>
+            <td class="num">{{ display_money(entry.cost) }}</td>
             <td>
               {% if current_user.role in ('admin', 'manager') %}
-              <form method="post" action="/time/{{ t.id }}/delete" style="display:inline"
+              <form method="post" action="/time/{{ entry.id }}/delete" style="display:inline"
                     onsubmit="return confirm('{{ t('delete_entry_confirm') }}')">
                 <button class="link-btn">🗑️</button>
               </form>

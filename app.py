@@ -286,8 +286,8 @@ def invoice(order_id):
     order, items = models.get_order(order_id)
     if not order:
         abort(404)
-    subtotal = sum(i["qty"] * i["unit_price"] for i in items)
-    fee = subtotal * (order["fee_percent"] / 100.0)
+    subtotal = sum(float(i["qty"]) * float(i["unit_price"]) for i in items)
+    fee = subtotal * (float(order["fee_percent"] or 0) / 100.0)
     total = subtotal + fee
     return render_template("invoice.html",
                            order=order, items=items,
@@ -304,9 +304,10 @@ def invoice_pdf(order_id):
 
     # Pretvori sqlite3.Row u dict (da radi .get())
     order = dict(order)
+    items = [dict(i) for i in items]   # ← dodatno, da bude sigurno
 
-    subtotal = sum(i["qty"] * i["unit_price"] for i in items)
-    fee = subtotal * (order["fee_percent"] / 100.0)
+    subtotal = sum(float(i["qty"]) * float(i["unit_price"]) for i in items)
+    fee = subtotal * (float(order["fee_percent"] or 0) / 100.0)
     total = subtotal + fee
 
     from pdf import generate_invoice_pdf
@@ -946,22 +947,32 @@ def admin_test_email():
 @login_required
 @role_required(*ADMIN_ONLY)
 def admin_test_report(period, lang=None):
-    """Ručno pošalji izveštaj — koristi jezik/valutu ulogovanog korisnika."""
+    """
+    Ručno pošalji izveštaj.
+    - Bez `lang` u URL-u: uvek SR (za brzi test na srpskom)
+    - Sa `lang` u URL-u: forsiraj taj jezik (npr. /en)
+    """
     if period not in ("week", "month"):
         abort(400)
-    if lang and lang not in ("sr", "en"):
+
+    # Ako lang NIJE prosleđen u URL-u — forsiraj SR
+    if lang is None:
+        lang = "sr"
+
+    if lang not in ("sr", "en"):
         abort(400)
-    from reports import send_report
-    # Ako lang nije eksplicitno zadat, uzmi iz ulogovanog korisnika
-    if not lang:
-        lang = getattr(current_user, "language", None) or "sr"
+
+    # Valuta — koristi korisnikovu (RSD/EUR/USD)
     currency = getattr(current_user, "currency", None) or "RSD"
+
+    from reports import send_report
     ok = send_report(period, lang=lang, currency=currency)
-    flash(
-        f"Test izveštaj ({period}/{lang}/{currency}) poslat ✅" if ok
-        else "Greška — proveri log",
-        "success" if ok else "danger"
-    )
+
+    if ok:
+        flash(f"Test izveštaj ({period}/{lang}/{currency}) poslat ✅", "success")
+    else:
+        flash("Greška — proveri log", "danger")
+
     return redirect(url_for("auth.profile"))
 
 # ==================== ADMIN: BACKUP ====================
