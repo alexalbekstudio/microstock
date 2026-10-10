@@ -37,3 +37,9 @@ backups/
 backups/
 pg_backup_*.json
 migracija.sql
+
+# PDF sources (ostaju lokalno, ne idu na Git)
+docs/*.md
+static/docs/*.png
+static/docs/*.jpeg
+static/docs/*.html
