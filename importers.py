@@ -30,6 +30,7 @@ PRESETS = {
             "unit_price": ["Price", "Item Price", "Unit Price"],
         },
         "note":          ["Note from Buyer", "Notes", "Message"],
+        "customer_phone": ["Billing Phone", "Shipping Phone", "Phone"],
     },
     "gumroad": {
         "label": "Gumroad (Sales.csv)",
@@ -45,6 +46,7 @@ PRESETS = {
             "unit_price": ["Price", "Amount", "Total"],
         },
         "note":          ["Notes", "Note"],
+        "customer_phone": ["Billing Phone", "Shipping Phone", "Phone"],
     },
     "payhip": {
         "label": "Payhip (Sales.csv)",
@@ -60,6 +62,7 @@ PRESETS = {
             "unit_price": ["Price", "Amount"],
         },
         "note":          ["Notes"],
+        "customer_phone": ["Billing Phone", "Shipping Phone", "Phone"],
     },
     "shopify": {
         "label": "Shopify (orders_export.csv)",
@@ -75,6 +78,7 @@ PRESETS = {
             "unit_price": ["Lineitem price", "Price"],
         },
         "note":          ["Notes", "Note"],
+        "customer_phone": ["Billing Phone", "Shipping Phone", "Phone"],
     },
     "tiktok": {
         "label": "TikTok Shop (OrderSKUList.csv)",
@@ -90,6 +94,7 @@ PRESETS = {
             "unit_price": ["SKU Unit Original Price", "Unit Price", "Price"],
         },
         "note":          ["Buyer Message", "Notes"],
+        "customer_phone": ["Billing Phone", "Shipping Phone", "Phone"],
     },
     "instagram": {
         "label": "Instagram / Meta (generic)",
@@ -105,6 +110,7 @@ PRESETS = {
             "unit_price": ["Price", "Unit Price"],
         },
         "note":          ["Note", "Notes"],
+        "customer_phone": ["Billing Phone", "Shipping Phone", "Phone"],
     },
     "generic": {
         "label": "Generički CSV (ručno mapiranje)",
@@ -120,6 +126,7 @@ PRESETS = {
             "unit_price": ["price", "unit_price", "amount"],
         },
         "note":          ["note", "notes"],
+        "customer_phone": ["Billing Phone", "Shipping Phone", "Phone"],
     },
 }
 

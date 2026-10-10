@@ -360,6 +360,29 @@ def orders():
         f_status=status, f_channel=channel_id, f_search=search or ""
     )
 
+def build_whatsapp_link(phone, message=""):
+    """
+    Pravi wa.me link za WhatsApp.
+    Primer: build_whatsapp_link("+381601234567", "Zdravo!")
+    """
+    if not phone:
+        return None
+
+    # Očisti telefon — zadrži samo cifre i +
+    import re
+    clean = re.sub(r'[^\d+]', '', phone.strip())
+
+    # Ako nema + na početku, dodaj (default Srbija)
+    if not clean.startswith("+"):
+        # Ako počinje sa 0, zameni sa +381
+        if clean.startswith("0"):
+            clean = "+381" + clean[1:]
+        else:
+            clean = "+" + clean
+
+    from urllib.parse import quote
+    encoded = quote(message or "")
+    return f"https://wa.me/{clean}?text={encoded}"
 
 @app.route("/orders/new", methods=["POST"])
 @login_required
@@ -384,6 +407,7 @@ def new_order():
         note=request.form.get("note", ""),
         shipping_cost=float(request.form.get("shipping_cost") or 0),
         shipping_method=request.form.get("shipping_method", "").strip(),
+        customer_phone=request.form.get("customer_phone", "").strip(),
     )
     if dup:
         flash("Narudžbina već postoji (duplikat).", "err")
@@ -414,6 +438,7 @@ def edit_order(order_id):
         request.form["status"],
         shipping_cost=float(request.form.get("shipping_cost") or 0),
         shipping_method=request.form.get("shipping_method", "").strip(),
+        customer_phone=request.form.get("customer_phone", "").strip(),
     )
     flash("Narudžbina sačuvana.", "ok")
     return redirect(url_for("order_detail", order_id=order_id))

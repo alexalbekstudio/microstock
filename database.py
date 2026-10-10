@@ -166,6 +166,11 @@ def _run_migrations(conn):
         CREATE INDEX IF NOT EXISTS idx_suppliers_name
         ON suppliers(name)
         """,
+
+                # 13) orders.customer_phone — za WhatsApp deep links
+        """
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT
+        """,
     ]
 
     for sql in migrations:

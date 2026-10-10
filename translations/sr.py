@@ -690,4 +690,8 @@ TRANSLATIONS = {
     "faq_a5": "Otvori MicroStock u Chrome-u → meni → 'Add to Home Screen' → ikonica se pojavljuje na home screen-u.",
     "help_support": "Podrška",
     "help_support_desc": "Za sva pitanja, predloge ili prijavu grešaka — kontaktiraj nas:",
+
+        # WhatsApp
+    "customer_phone": "Telefon kupca",
+    "wa_message_default": "Zdravo, u vezi tvoje narudžbine",
 }

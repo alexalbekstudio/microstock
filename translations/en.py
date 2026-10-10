@@ -689,4 +689,8 @@ TRANSLATIONS = {
     "faq_a5": "Open MicroStock in Chrome → menu → 'Add to Home Screen' → icon appears on home screen.",
     "help_support": "Support",
     "help_support_desc": "For any questions, suggestions, or bug reports — contact us:",
+
+        # WhatsApp
+    "customer_phone": "Customer phone",
+    "wa_message_default": "Hi, regarding your order",
 }

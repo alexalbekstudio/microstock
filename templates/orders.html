@@ -116,9 +116,18 @@
           {% if o.source %}{{ o.source }}{% endif %}
           {% if o.external_id %}/ {{ o.external_id }}{% endif %}
         </td>
-        <td>
+        <td style="white-space:nowrap">
           <a href="/orders/{{ o.id }}" class="link-btn" title="{{ t('edit') }}">✏️</a>
           <a href="/invoice/{{ o.id }}" class="link-btn" title="{{ t('invoice') }}">🧾</a>
+          {% if o.customer_phone %}
+            <a href="https://wa.me/{{ o.customer_phone|replace('+', '')|replace(' ', '')|replace('-', '')|replace('(', '')|replace(')', '') }}?text={{ (t('wa_message_default') ~ ' #' ~ o.id)|urlencode }}"
+              target="_blank"
+              class="link-btn"
+              title="WhatsApp"
+              style="color:#25d366; text-decoration:none">
+              📱
+            </a>
+          {% endif %}
           {% if current_user.role in ('admin', 'manager') %}
           <form method="post" action="/orders/{{ o.id }}/delete" style="display:inline"
                 onsubmit="return confirm('{{ t('delete_order') }}')">

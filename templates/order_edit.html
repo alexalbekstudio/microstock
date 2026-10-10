@@ -8,6 +8,14 @@
   <div class="page-header__actions">
     <a href="/orders" class="btn btn--secondary">← {{ t("back") }}</a>
     <a href="/invoice/{{ order.id }}" class="btn btn--primary">🧾 {{ t("invoice") }}</a>
+    {% if order.customer_phone %}
+      <a href="https://wa.me/{{ order.customer_phone|replace('+', '')|replace(' ', '')|replace('-', '') }}?text={{ (t('wa_message_default') ~ ' #' ~ order.id)|urlencode }}"
+         target="_blank"
+         class="btn btn--secondary"
+         style="background:#25d366;color:#fff;border-color:#25d366">
+        📱 WhatsApp
+      </a>
+    {% endif %}
   </div>
 </div>
 
@@ -18,6 +26,11 @@
       <div class="form-row">
         <label>{{ t("col_customer") }}</label>
         <input name="customer_name" value="{{ order.customer_name }}" required>
+      </div>
+      <div class="form-row">
+        <label>{{ t("customer_phone") }}</label>
+        <input name="customer_phone" value="{{ order.customer_phone or '' }}"
+               placeholder="+381601234567">
       </div>
       <div class="form-row">
         <label>{{ t("col_channel") }}</label>

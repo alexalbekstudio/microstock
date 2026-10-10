@@ -69,7 +69,8 @@ def list_channels():
 
 def create_order_tx(conn, customer_name, channel_id, items, note="",
                     external_id=None, source="manual",
-                    shipping_cost=0, shipping_method=""):
+                    shipping_cost=0, shipping_method="",
+                    customer_phone=""):
     """
     Isto kao create_order, ali prima POSTOJEĆU konekciju.
     Ne otvara novu, ne zatvara je. Pozivalac kontroliše transakciju.
@@ -87,11 +88,12 @@ def create_order_tx(conn, customer_name, channel_id, items, note="",
 
     cur = conn.execute("""
         INSERT INTO orders (customer_name, channel_id, note, external_id, source,
-                            shipping_cost, shipping_method)
-        VALUES (%s,%s,%s,%s,%s,%s,%s)
+                            shipping_cost, shipping_method, customer_phone)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
     """, (customer_name, channel_id, note, external_id, source,
-          float(shipping_cost or 0), (shipping_method or "").strip()))
+          float(shipping_cost or 0), (shipping_method or "").strip(),
+          (customer_phone or "").strip() or None))
     row_new = cur.fetchone()
     order_id = row_new["id"] if row_new else None
     if not order_id:
@@ -119,16 +121,14 @@ def create_order_tx(conn, customer_name, channel_id, items, note="",
 
 def create_order(customer_name, channel_id, items, note="",
                  external_id=None, source="manual",
-                 shipping_cost=0, shipping_method=""):
-    """
-    Originalna create_order — otvara svoju konekciju, radi commit/close.
-    Koristi create_order_tx za logiku.
-    """
+                 shipping_cost=0, shipping_method="",
+                 customer_phone=""):
     conn = connect()
     try:
         order_id, dup = create_order_tx(
             conn, customer_name, channel_id, items, note,
-            external_id, source, shipping_cost, shipping_method
+            external_id, source, shipping_cost, shipping_method,
+            customer_phone
         )
         conn.commit()
         return order_id, dup
@@ -139,15 +139,16 @@ def create_order(customer_name, channel_id, items, note="",
         conn.close()
 
 def update_order(order_id, customer_name, channel_id, note, status,
-                 shipping_cost=0, shipping_method=""):
+                 shipping_cost=0, shipping_method="", customer_phone=""):
     conn = connect()
     conn.execute("""
         UPDATE orders
            SET customer_name=%s, channel_id=%s, note=%s, status=%s,
-               shipping_cost=%s, shipping_method=%s
+               shipping_cost=%s, shipping_method=%s, customer_phone=%s
          WHERE id=%s
     """, (customer_name, channel_id, note, status,
           float(shipping_cost or 0), (shipping_method or "").strip(),
+          (customer_phone or "").strip() or None,
           order_id))
     conn.commit(); conn.close()
 
@@ -173,7 +174,7 @@ def delete_order(order_id):
 
 def list_orders(status=None, channel_id=None, search=None):
     sql = """
-        SELECT o.id, o.customer_name, o.status, o.created_at, o.source,
+        SELECT o.id, o.customer_name, o.customer_phone, o.status, o.created_at, o.source,
                o.external_id, o.shipping_cost, o.shipping_method,
                c.name AS channel,
                (SELECT SUM(qty*unit_price) FROM order_items WHERE order_id=o.id) AS total
