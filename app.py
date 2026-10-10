@@ -1377,6 +1377,10 @@ def admin_currency_rates_set():
 
     try:
         currency_rates.set_manual_rate(source, target, rate)
+        # Resetuj memorijski keš da odmah vidi novi kurs
+        import currency_rates as cr
+        cr._MEMORY_CACHE.clear()
+        cr._API_CALLED_TODAY = None
         flash(f"Kurs {source}→{target} = {rate:.4f} sačuvan.", "success")
     except Exception as e:
         flash(f"Greška: {e}", "err")
@@ -1392,6 +1396,10 @@ def admin_currency_rates_refresh():
     import currency_rates
 
     ok, n, msg = currency_rates.refresh_from_nbs()
+    # Resetuj memorijski keš
+    import currency_rates as cr
+    cr._MEMORY_CACHE.clear()
+    cr._API_CALLED_TODAY = None
     flash(msg, "success" if ok else "err")
     return redirect(url_for("admin_currency_rates"))
 

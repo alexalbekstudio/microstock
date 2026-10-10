@@ -16,6 +16,12 @@ from datetime import date
 
 from db_adapter import connect
 
+# ============================================================
+# IN-MEMORY CACHE (da ne udara NBS API za svaki display_money)
+# ============================================================
+_MEMORY_CACHE = {}          # {"EUR_RSD": {"rate": 117.2, "date": "2026-10-10"}}
+_API_CALLED_TODAY = None    # Datum kad je API poslednji put uspešno pozvan
+
 NBS_API_URL = "https://allratestoday.com/api/v1/central-bank/nbs/latest"
 
 warnings.filterwarnings("ignore", message="Unable to find acceptable character detection dependency")
@@ -53,51 +59,74 @@ def fetch_nbs_latest():
 def get_rate(source, target):
     """
     Vraća kurs za par (npr. EUR -> RSD).
-    Redosled: baza → API → fallback na najnoviji iz baze → 1.0
+    Redosled: memorija → baza → API → fallback na najnoviji iz baze → 1.0
     """
+    global _API_CALLED_TODAY
+    from datetime import date as _date
+
     source = source.upper()
     target = target.upper()
 
-    # Ako su iste valute — kurs je 1.0
     if source == target:
-        return {"rate": 1.0, "rate_date": str(date.today()),
+        return {"rate": 1.0, "rate_date": str(_date.today()),
                 "source": source, "target": target}
 
-    # 1) Baza — današnji kurs?
+    cache_key = f"{source}_{target}"
+    today_str = str(_date.today())
+
+    # 1) Memorija — ako je kurs od DANAS, vrati odmah
+    mem = _MEMORY_CACHE.get(cache_key)
+    if mem and mem.get("date") == today_str:
+        return {
+            "rate": mem["rate"],
+            "rate_date": today_str,
+            "source": source,
+            "target": target,
+            "from_memory": True,
+        }
+
+    # 2) Baza — današnji kurs?
     cached = get_cached_rate(source, target, today_only=True)
     if cached:
+        # Sačuvaj u memoriju
+        _MEMORY_CACHE[cache_key] = {"rate": cached["rate"], "date": today_str}
         return cached
 
-    # 2) API — pozovi i sačuvaj
-    try:
-        result = fetch_nbs_latest()
-        for r in result["rates"]:
-            if r["source"] == source and r["target"] == target:
-                # Sačuvaj sve kurseve u bazu (jedan API poziv dnevno)
-                try:
-                    save_rates_to_db(result)
-                except Exception as e:
-                    print(f"[currency_rates] save greška: {e}")
+    # 3) API — pozovi SAMO ako već nije pozvan danas (globalna zaštita)
+    if _API_CALLED_TODAY != today_str:
+        try:
+            result = fetch_nbs_latest()
+            _API_CALLED_TODAY = today_str   # markiraj da je API pozvan danas
+            for r in result["rates"]:
+                if r["source"] == source and r["target"] == target:
+                    try:
+                        save_rates_to_db(result)
+                    except Exception as e:
+                        print(f"[currency_rates] save greška: {e}")
+                    # Sačuvaj u memoriju
+                    _MEMORY_CACHE[cache_key] = {"rate": r["rate"], "date": today_str}
+                    return {
+                        "rate": r["rate"],
+                        "rate_date": result["rate_date"],
+                        "source": source,
+                        "target": target,
+                    }
+        except Exception as e:
+            print(f"[currency_rates] API greška: {e}")
+            _API_CALLED_TODAY = today_str   # ne pokušavaj ponovo danas
 
-                return {
-                    "rate": r["rate"],
-                    "rate_date": result["rate_date"],
-                    "source": source,
-                    "target": target,
-                }
-    except Exception as e:
-        print(f"[currency_rates] API greška: {e}")
-
-    # 3) Fallback — najnoviji iz baze (iako je stariji)
+    # 4) Fallback — najnoviji iz baze (iako je stariji)
     cached = get_cached_rate(source, target, today_only=False)
     if cached:
+        _MEMORY_CACHE[cache_key] = {"rate": cached["rate"], "date": today_str}
         return cached
 
-    # 4) Poslednja linija odbrane — vrati 1.0 (ne konvertuj)
+    # 5) Poslednja linija odbrane — 1.0
     print(f"[currency_rates] NEMA kursa za {source}->{target}, vraćam 1.0")
+    _MEMORY_CACHE[cache_key] = {"rate": 1.0, "date": today_str}
     return {
         "rate": 1.0,
-        "rate_date": str(date.today()),
+        "rate_date": today_str,
         "source": source,
         "target": target,
         "fallback": True,
