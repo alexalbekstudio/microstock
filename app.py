@@ -1793,6 +1793,15 @@ def api_search():
         "projects": [dict(r) for r in projects],
     })
 
+# ==================== HELP ====================
+
+@app.route("/help")
+@login_required
+@role_required(*ALL_ROLES)
+def help_view():
+    """Stranica sa uputstvom i podrškom."""
+    return render_template("help.html")
+
 # ==================== DOBAVLJAČI ====================
 
 @app.route("/suppliers")

@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>MicroStock-User-Guide-EN.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="microstock--user-guide">MicroStock — User Guide</h1>
+<p><strong>Version:</strong> 1.0
+<strong>Date:</strong> October 2026
+<strong>Author:</strong> ALEXANDAR Studio</p>
+<hr>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-introduction">Introduction</a></li>
+<li><a href="#2-first-login">First Login</a></li>
+<li><a href="#3-dashboard">Dashboard</a></li>
+<li><a href="#4-products">Products</a></li>
+<li><a href="#5-orders">Orders</a></li>
+<li><a href="#6-analytics">Analytics</a></li>
+<li><a href="#7-projects">Projects</a></li>
+<li><a href="#8-suppliers--purchases">Suppliers &amp; Purchases</a></li>
+<li><a href="#9-capital">Capital</a></li>
+<li><a href="#10-pricing-calculator">Pricing Calculator</a></li>
+<li><a href="#11-csv-import">CSV Import</a></li>
+<li><a href="#12-qr-scanner">QR Scanner</a></li>
+<li><a href="#13-settings">Settings</a></li>
+<li><a href="#14-support">Support</a></li>
+</ol>
+<hr>
+<h2 id="1-introduction">1. Introduction</h2>
+<p>MicroStock is a <strong>lightweight web tool</strong> for managing a small online business. It's designed for:</p>
+<ul>
+<li><strong>Small online sellers</strong> (Instagram, WhatsApp, Etsy, Shopify, Faire)</li>
+<li><strong>Small agencies and consultants</strong> who track projects and costs</li>
+</ul>
+<p><strong>Key advantages:</strong></p>
+<ul>
+<li>Everything in one place (stock, orders, projects, finances)</li>
+<li>Runs in the browser — no installation</li>
+<li>PWA — installs as an app on phone</li>
+<li>Multi-currency and bilingual</li>
+</ul>
+<hr>
+<h2 id="2-first-login">2. First Login</h2>
+<p><img src="image-27.png" alt="login"></p>
+<ol>
+<li>Open the <strong>link</strong> you received with your account (e.g. <code>https://microstock.onrender.com</code>)</li>
+<li>Enter <strong>email</strong> and <strong>password</strong></li>
+<li>Click <strong>Login</strong></li>
+</ol>
+<p><strong>First time?</strong> Contact the administrator to create your account.</p>
+<h3 id="change-password">Change Password</h3>
+<p><img src="image-29.png" alt="change_password"></p>
+<ol>
+<li>Click <strong>Profile</strong> in the sidebar</li>
+<li>Enter current password</li>
+<li>Enter new password (min 6 characters)</li>
+<li>Click <strong>Save changes</strong></li>
+</ol>
+<h3 id="forgot-password">Forgot Password</h3>
+<p><img src="image-28.png" alt="password"></p>
+<ol>
+<li>On the login page, click <strong>Forgot your password?</strong></li>
+<li>Enter your email</li>
+<li>You'll receive a reset link (valid 1 hour)</li>
+<li>Set new password</li>
+</ol>
+<hr>
+<h2 id="3-dashboard">3. Dashboard</h2>
+<p><img src="image-32.png" alt="dashboard"></p>
+<p><strong>Dashboard</strong> is the central place where you see:</p>
+<ul>
+<li><strong>KPI cards</strong> — Revenue, Profit, Margin, Orders, Active Projects, Alerts</li>
+<li><strong>Capital</strong> — current balance</li>
+<li><strong>Supplier debt</strong> — how much you owe</li>
+<li><strong>Quick actions</strong> — shortcuts to Stock, Orders, Analytics, Projects</li>
+<li><strong>Alerts</strong> — what to do today (low stock, deadlines, loss-makers)</li>
+<li><strong>Charts</strong> — revenue/profit trend (30 days), profit by channel</li>
+</ul>
+<p><strong>Period filter</strong> — top right (7/30/90/365 days)</p>
+<h3 id="capital">Capital</h3>
+<p><img src="image-30.png" alt="capital"></p>
+<p><strong>Capital</strong> is how much money you have available for business. You change it through:</p>
+<ul>
+<li><strong>Deposit</strong> — when you put money into the company</li>
+<li><strong>Withdrawal</strong> — when you take money out</li>
+<li><strong>Purchase</strong> — when you buy goods (auto or manual)</li>
+<li><strong>Sale</strong> — when you sell goods (auto or manual)</li>
+<li><strong>Adjustment</strong> — manual correction</li>
+</ul>
+<hr>
+<h2 id="4-products">4. Products</h2>
+<p><img src="image-33.png" alt="product"></p>
+<h3 id="add-product">Add Product</h3>
+<ol>
+<li>Click <strong>Products</strong> in the sidebar</li>
+<li>Click <strong>➕ New product</strong></li>
+<li>Fill in:
+<ul>
+<li><strong>SKU</strong> — unique code (e.g. <code>MUG-001</code>)</li>
+<li><strong>Name</strong> — product name</li>
+<li><strong>Price</strong> — selling price (RSD)</li>
+<li><strong>Cost</strong> — purchase cost</li>
+<li><strong>Stock</strong> — current quantity</li>
+<li><strong>Alert below</strong> — when to warn you (e.g. 3)</li>
+</ul>
+</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<h3 id="edit-product">Edit Product</h3>
+<p><img src="image-34.png" alt="edit_product"></p>
+<ol>
+<li>Click <strong>✏️</strong> next to the product</li>
+<li>Modify fields</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<h3 id="archive">Archive</h3>
+<p><img src="image-34.png" alt="archive"></p>
+<p>Instead of deleting — <strong>archive</strong> the product. It stays in the database (for order history), but doesn't appear in the list.</p>
+<h3 id="qr-code">QR Code</h3>
+<p><img src="image-35.png" alt="qr_code"></p>
+<p>Click <strong>📱 QR code</strong> → download PNG with QR code. Print and stick on shelf/product. Scan with phone → opens product.</p>
+<h3 id="csv-export">CSV Export</h3>
+<p>Click <strong>CSV</strong> → download all products in Excel format.</p>
+<hr>
+<h2 id="5-orders">5. Orders</h2>
+<p><img src="image-36.png" alt="orders"></p>
+<h3 id="create-order">Create Order</h3>
+<ol>
+<li>Click <strong>Orders</strong> in the sidebar</li>
+<li>Click <strong>➕ New order</strong></li>
+<li>Fill in:
+<ul>
+<li><strong>Customer</strong> — customer name</li>
+<li><strong>Channel</strong> — Etsy, Shopify, Instagram...</li>
+<li><strong>Items</strong> — which product, how many</li>
+<li><strong>Note</strong> — optional</li>
+<li><strong>Shipping</strong> — cost and method</li>
+</ul>
+</li>
+<li>Click <strong>Create order</strong></li>
+</ol>
+<h3 id="status-workflow">Status Workflow</h3>
+<p><img src="image-37.png" alt="status_workflow"></p>
+<p>Order goes through phases:</p>
+<ul>
+<li><strong>New</strong> → <strong>Paid</strong> → <strong>Shipped</strong> → <strong>Done</strong></li>
+<li><strong>Cancelled</strong> (if customer cancels)</li>
+</ul>
+<h3 id="pdf-invoice">PDF Invoice</h3>
+<p><img src="image-38.png" alt="pdf_invoice"></p>
+<ol>
+<li>Open order</li>
+<li>Click <strong>📄 Download PDF</strong></li>
+<li>Invoice downloads in <strong>selected currency</strong> (RSD/EUR/USD)</li>
+</ol>
+<h3 id="print">Print</h3>
+<p>Click <strong>🖨️ Print</strong> → opens print dialog in browser.</p>
+<hr>
+<h2 id="6-analytics">6. Analytics</h2>
+<p><img src="image-39.png" alt="analytics"></p>
+<p><strong>Analytics</strong> shows:</p>
+<ul>
+<li><strong>KPI</strong> — Revenue, Fees, Cost, Shipping, Profit, Margin</li>
+<li><strong>Trend</strong> — revenue and profit by day</li>
+<li><strong>Profit by channel</strong> — which channel brings the most</li>
+<li><strong>Top products</strong> — 15 best sellers</li>
+<li><strong>Loss-makers</strong> — products sold below cost</li>
+<li><strong>Top customers</strong> — 10 best</li>
+</ul>
+<p><strong>Period filter</strong> — 7/30/90/365 days or all time.</p>
+<h3 id="pdf-report">PDF Report</h3>
+<p>Click <strong>📄 PDF</strong> → download analytics report with logo.</p>
+<hr>
+<h2 id="7-projects">7. Projects</h2>
+<p><img src="image-40.png" alt="projects"></p>
+<p><strong>Projects</strong> are for agencies/consultants — track:</p>
+<ul>
+<li><strong>Client</strong> — who you work for</li>
+<li><strong>Contract value</strong> — how much you charged</li>
+<li><strong>Work hours</strong> — how much the team spent</li>
+<li><strong>Expenses</strong> — material, subcontractors, travel</li>
+<li><strong>Profit</strong> — contract value − costs</li>
+<li><strong>Budget usage</strong> — percentage of usage</li>
+</ul>
+<h3 id="add-project">Add Project</h3>
+<ol>
+<li>Click <strong>Projects</strong> in the sidebar</li>
+<li>Click <strong>➕ New project</strong></li>
+<li>Fill in basic data</li>
+<li><strong>Save</strong></li>
+</ol>
+<h3 id="work-hours-and-expenses">Work Hours and Expenses</h3>
+<p><img src="image-41.png" alt="work_hours"></p>
+<p>In project details, add:</p>
+<ul>
+<li><strong>Hours</strong> — which team member, how many hours, description</li>
+<li><strong>Expenses</strong> — category (material, subcontractor, travel), amount, description</li>
+</ul>
+<h3 id="alerts">Alerts</h3>
+<p><img src="image-42.png" alt="alerts"></p>
+<p>When project exceeds <strong>80% budget</strong> → warning (yellow).
+When it exceeds <strong>100% budget</strong> → alarm (red).</p>
+<h3 id="project-pdf-report">Project PDF Report</h3>
+<p>Click <strong>📄 PDF</strong> → download report with hours, expenses, and KPI.</p>
+<hr>
+<h2 id="8-suppliers--purchases">8. Suppliers &amp; Purchases</h2>
+<p><img src="image-43.png" alt="suppliers"></p>
+<p><strong>Suppliers</strong> is a directory of people/companies you buy goods from.</p>
+<h3 id="add-supplier">Add Supplier</h3>
+<ol>
+<li>Click <strong>Suppliers</strong> in the sidebar</li>
+<li>Click <strong>➕ New supplier</strong></li>
+<li>Fill in:
+<ul>
+<li><strong>Company name</strong> (required)</li>
+<li><strong>Contact person</strong>, <strong>email</strong>, <strong>phone</strong></li>
+<li><strong>Address</strong>, <strong>city</strong>, <strong>Tax ID</strong></li>
+<li><strong>IBAN</strong>, <strong>SWIFT</strong> — for payment</li>
+<li><strong>Product categories</strong> — what you buy from them</li>
+</ul>
+</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<h3 id="purchase-invoices">Purchase Invoices</h3>
+<p><img src="image-44.png" alt="purchase"></p>
+<p><strong>Purchase invoices</strong> track what you bought, when, how much, and if you paid.</p>
+<h3 id="new-invoice">New Invoice</h3>
+<p><img src="image-45.png" alt="new_invoice"></p>
+<ol>
+<li>Click <strong>🧾 Purchase invoices</strong> in the sidebar</li>
+<li>Click <strong>➕ New purchase invoice</strong></li>
+<li>Fill in:
+<ul>
+<li><strong>Supplier</strong> (required)</li>
+<li><strong>Invoice number</strong> (optional)</li>
+<li><strong>Invoice date</strong>, <strong>due date</strong></li>
+<li><strong>Currency</strong> (RSD/EUR/USD)</li>
+<li><strong>Status</strong> — unpaid / paid / partial / overdue</li>
+</ul>
+</li>
+<li><strong>Upload scanned invoice</strong> (PDF or image, max 5 MB)</li>
+<li>Click <strong>Save and add items</strong></li>
+</ol>
+<h3 id="invoice-items">Invoice Items</h3>
+<p><img src="image-46.png" alt="invoice_items"></p>
+<p>Add each item:</p>
+<ul>
+<li><strong>Product</strong> from database or <strong>free text</strong> (e.g. &quot;packaging material&quot;)</li>
+<li><strong>Quantity</strong></li>
+<li><strong>Unit cost</strong></li>
+<li><strong>Total</strong> — auto-calculated</li>
+</ul>
+<h3 id="payment-status">Payment Status</h3>
+<p><img src="image-47.png" alt="payment_status"></p>
+<ul>
+<li><strong>Unpaid</strong> (🔵) — not yet paid</li>
+<li><strong>Paid</strong> (🟢) — paid → <strong>auto-deduct capital</strong></li>
+<li><strong>Partial</strong> (🟡) — paid part</li>
+<li><strong>Overdue</strong> (🔴) — past due date</li>
+<li><strong>Cancelled</strong> (⚫) — cancelled</li>
+</ul>
+<p><strong>When you mark &quot;Paid&quot;:</strong></p>
+<ul>
+<li>Capital is automatically reduced by the amount</li>
+<li>Product cost is updated (average)</li>
+</ul>
+<h3 id="purchase-reports">Purchase Reports</h3>
+<p><img src="image-48.png" alt="purchase_reports"></p>
+<p>Click <strong>📊 Purchase reports</strong> → see:</p>
+<ul>
+<li>Total debt to suppliers</li>
+<li>By supplier — how much you paid, how much you owe</li>
+<li>By month — how much you paid each month</li>
+</ul>
+<hr>
+<h2 id="9-capital">9. Capital</h2>
+<p><img src="image-31.png" alt="capital"></p>
+<p><strong>Capital</strong> is money available for business.</p>
+<h3 id="transactions">Transactions</h3>
+<ul>
+<li><strong>Deposit</strong> — put money into company</li>
+<li><strong>Withdrawal</strong> — take money out (salary, personal)</li>
+<li><strong>Purchase</strong> — buy goods (reduces)</li>
+<li><strong>Sale</strong> — sell goods (increases)</li>
+<li><strong>Adjustment</strong> — manual correction</li>
+</ul>
+<p><strong>Automatic:</strong></p>
+<ul>
+<li>When you mark purchase invoice as <strong>paid</strong> → capital is reduced</li>
+<li>When you cancel → capital is returned</li>
+</ul>
+<hr>
+<h2 id="10-pricing-calculator">10. Pricing Calculator</h2>
+<p><img src="image-49.png" alt="pricing_calculator"></p>
+<p><strong>Pricing calculator</strong> helps determine <strong>selling price</strong>.</p>
+<h3 id="mode-a--what-should-the-price-be">Mode A — What should the price be?</h3>
+<ol>
+<li>Enter <strong>cost price</strong></li>
+<li>Enter <strong>shipping</strong> (if you pay it)</li>
+<li>Enter <strong>channel fee</strong> (e.g. Etsy 6.5%)</li>
+<li>Enter <strong>desired margin</strong> (e.g. 30%)</li>
+<li>See <strong>recommended price</strong>, <strong>profit</strong>, <strong>real margin</strong></li>
+</ol>
+<h3 id="mode-b--how-much-do-i-earn-at-this-price">Mode B — How much do I earn at this price?</h3>
+<ol>
+<li>Enter <strong>cost price</strong></li>
+<li>Enter <strong>selling price</strong></li>
+<li>See <strong>profit</strong>, <strong>margin</strong>, <strong>markup</strong></li>
+</ol>
+<h3 id="apply-to-product">Apply to Product</h3>
+<p><img src="image-50.png" alt="apply"></p>
+<p>Select product → click <strong>Apply</strong> → new price is saved to database.</p>
+<hr>
+<h2 id="11-csv-import">11. CSV Import</h2>
+<p><img src="image-51.png" alt="csv_import"></p>
+<p><strong>CSV Import</strong> allows bulk entry of orders.</p>
+<h3 id="supported-platforms">Supported Platforms</h3>
+<ul>
+<li>Etsy (Orders.csv)</li>
+<li>Shopify (orders_export.csv)</li>
+<li>Gumroad</li>
+<li>Payhip</li>
+<li>TikTok Shop</li>
+<li>Instagram / Meta</li>
+<li><strong>Generic CSV</strong> — manual mapping</li>
+</ul>
+<h3 id="procedure">Procedure</h3>
+<ol>
+<li>Click <strong>📥 Import from CSV</strong></li>
+<li>Select <strong>file</strong></li>
+<li>Select <strong>platform</strong> (preset)</li>
+<li>Click <strong>→ Upload and preview</strong></li>
+<li><strong>Check column mapping</strong> — if something is wrong, change manually</li>
+<li>Select <strong>channel</strong> (Etsy, Shopify...)</li>
+<li>Click <strong>✅ Confirm and import</strong></li>
+</ol>
+<h3 id="result">Result</h3>
+<p><img src="image-52.png" alt="result"></p>
+<p>You see:</p>
+<ul>
+<li><strong>Total rows</strong></li>
+<li><strong>Imported</strong> — how many orders</li>
+<li><strong>Skipped</strong> — duplicates</li>
+<li><strong>Errors</strong> — if any</li>
+<li><strong>New products</strong> — auto-created</li>
+</ul>
+<hr>
+<h2 id="12-qr-scanner">12. QR Scanner</h2>
+<p><img src="image-35.png" alt="qr_scanner"></p>
+<p><strong>QR scanner</strong> enables quick opening of products by scanning QR code.</p>
+<h3 id="procedure-1">Procedure</h3>
+<ol>
+<li>Click <strong>📷 Scan QR code</strong> in the sidebar</li>
+<li>Allow <strong>camera</strong> in browser</li>
+<li>Point camera at QR code</li>
+<li>When scanned — opens <strong>modal</strong> with product (name, price, stock)</li>
+<li>Click <strong>➕ Add to order</strong> → fill form → <strong>Create</strong></li>
+</ol>
+<h3 id="manual-input">Manual Input</h3>
+<p>If camera doesn't work, type <strong>SKU</strong> or <strong>URL</strong> in <strong>Manual input</strong> field.</p>
+<hr>
+<h2 id="13-settings">13. Settings</h2>
+<h3 id="language">Language</h3>
+<p><img src="image-29.png" alt="language"></p>
+<p>In topbar (top right) select <strong>SR</strong> or <strong>EN</strong>.</p>
+<h3 id="currency">Currency</h3>
+<p><img src="image-29.png" alt="currency"></p>
+<p>In topbar select <strong>din RSD</strong>, <strong>€ EUR</strong> or <strong>$ USD</strong>. All prices are automatically converted.</p>
+<h3 id="currency-rates-admin">Currency Rates (admin)</h3>
+<p><img src="image-53.png" alt="currency_rates"></p>
+<p>Admin can:</p>
+<ul>
+<li>View current rates</li>
+<li><strong>Manually enter</strong> rate (if NBS fails)</li>
+<li><strong>Refresh from NBS</strong> (one click)</li>
+</ul>
+<h3 id="users-admin">Users (admin)</h3>
+<p><img src="image-54.png" alt="users"></p>
+<p>Admin can:</p>
+<ul>
+<li>Add new users</li>
+<li>Change roles (admin/manager/viewer)</li>
+<li>Activate/deactivate accounts</li>
+<li>Change passwords</li>
+</ul>
+<h3 id="backups-admin">Backups (admin)</h3>
+<p><img src="image-55.png" alt="backups"></p>
+<p>Click <strong>💾 Backups</strong> → download JSON backup of database.</p>
+<hr>
+<h2 id="14-support">14. Support</h2>
+<p><strong>Email:</strong> <a href="mailto:alexalbekstudio.design@gmail.com">alexalbekstudio.design@gmail.com</a>
+<strong>Studio:</strong> ALEXANDAR Studio
+<strong>Copyright:</strong> © 2026 ALEXANDAR Studio</p>
+<hr>
+<p><em>Thank you for using MicroStock!</em></p>
+
+</body>
+</html>

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ t("help_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}❓ {{ t("help_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>❓ {{ t("help_title") }}</h1>
+</div>
+
+<p class="muted">{{ t("help_desc") }}</p>
+
+{# ==== UPUTSTVO ==== #}
+<div class="card">
+  <h3>📄 {{ t("help_manual") }}</h3>
+  <p>{{ t("help_manual_desc") }}</p>
+  <div class="btn-row">
+    <a href="{{ url_for('static', filename='docs/MicroStock-Uputstvo-SR.pdf') }}"
+       class="btn btn--primary" download>
+      🇷🇸 {{ t("help_download_sr") }}
+    </a>
+    <a href="{{ url_for('static', filename='docs/MicroStock-User-Guide-EN.pdf') }}"
+       class="btn btn--primary" download>
+      🇬🇧 {{ t("help_download_en") }}
+    </a>
+  </div>
+</div>
+
+{# ==== FAQ ==== #}
+<div class="card">
+  <h3>💡 {{ t("help_faq") }}</h3>
+
+  <details style="margin-bottom:.75rem">
+    <summary style="cursor:pointer; font-weight:600">{{ t("faq_q1") }}</summary>
+    <p class="muted" style="margin-top:.5rem">{{ t("faq_a1") }}</p>
+  </details>
+
+  <details style="margin-bottom:.75rem">
+    <summary style="cursor:pointer; font-weight:600">{{ t("faq_q2") }}</summary>
+    <p class="muted" style="margin-top:.5rem">{{ t("faq_a2") }}</p>
+  </details>
+
+  <details style="margin-bottom:.75rem">
+    <summary style="cursor:pointer; font-weight:600">{{ t("faq_q3") }}</summary>
+    <p class="muted" style="margin-top:.5rem">{{ t("faq_a3") }}</p>
+  </details>
+
+  <details style="margin-bottom:.75rem">
+    <summary style="cursor:pointer; font-weight:600">{{ t("faq_q4") }}</summary>
+    <p class="muted" style="margin-top:.5rem">{{ t("faq_a4") }}</p>
+  </details>
+
+  <details style="margin-bottom:.75rem">
+    <summary style="cursor:pointer; font-weight:600">{{ t("faq_q5") }}</summary>
+    <p class="muted" style="margin-top:.5rem">{{ t("faq_a5") }}</p>
+  </details>
+</div>
+
+{# ==== PODRŠKA ==== #}
+<div class="card card--info">
+  <h3>📞 {{ t("help_support") }}</h3>
+  <p>{{ t("help_support_desc") }}</p>
+  <div class="btn-row">
+    <a href="mailto:alexalbekstudio.design@gmail.com" class="btn btn--primary">
+      📧 alexalbekstudio.design@gmail.com
+    </a>
+  </div>
+  <p class="muted small" style="margin-top:1rem">
+    ALEXANDAR Studio · © 2026 {{ t("all_rights_reserved") }}
+  </p>
+</div>
+
+{% endblock %}
