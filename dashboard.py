@@ -59,6 +59,10 @@ def control_center(days=30):
     import capital as capital_mod
     capital_summary = capital_mod.get_summary(days=days)
 
+    # === 6. Nabavka (dug dobavljačima) ===
+    import purchases as purch
+    purchases_summary = purch.unpaid_total()
+
     return {
         "kpi": kpi,
         "trend": analytics.trend(days),
@@ -72,4 +76,5 @@ def control_center(days=30):
         "total_alerts": total_alerts,
         "days": days,
         "capital": capital_summary,   # ← DODATO
+        "purchases": purchases_summary,
     }

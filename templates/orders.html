@@ -109,7 +109,7 @@
             </select>
           </form>
           {% else %}
-            <span class="badge badge--{{ o.status }}">{{ t("status_" ~ o.status) }}</span>
+            <span class="badge badge--status-{{ o.status }}">{{ o.status }}</span>
           {% endif %}
         </td>
         <td class="muted small">

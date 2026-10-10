@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ t("new_purchase") }} — MicroStock{% endblock %}
+{% block topbar_title %}🧾 {{ t("new_purchase") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>🧾 {{ t("new_purchase") }}</h1>
+  <a href="{{ url_for('purchases_view') }}" class="btn btn--secondary">← {{ t("back") }}</a>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+  <div class="card">
+    <h3>{{ t("purchase_basic") }}</h3>
+    <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none;">
+
+      <div class="form-row">
+        <label>{{ t("supplier") }} *</label>
+        <select name="supplier_id" required>
+          <option value="">— {{ t("select_supplier") }} —</option>
+          {% for s in suppliers %}
+            <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("invoice_number") }}</label>
+        <input name="invoice_number" placeholder="npr. 2026-001">
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("invoice_date") }}</label>
+        <input name="invoice_date" type="date" value="{{ now_date or '' }}">
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("due_date") }}</label>
+        <input name="due_date" type="date">
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("currency") }}</label>
+        <select name="currency">
+          <option value="RSD">RSD</option>
+          <option value="EUR">EUR</option>
+          <option value="USD">USD</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("status") }}</label>
+        <select name="status">
+          <option value="pending">{{ t("status_pending") }}</option>
+          <option value="paid">{{ t("status_paid") }}</option>
+          <option value="partial">{{ t("status_partial") }}</option>
+          <option value="overdue">{{ t("status_overdue") }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>{{ t("purchase_attach") }}</h3>
+    <p class="muted small">{{ t("purchase_attach_desc") }}</p>
+    <div class="form-row">
+      <input type="file" name="file" accept="application/pdf,image/*"
+             class="file-input">
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>{{ t("notes") }}</h3>
+    <div class="form-row">
+      <textarea name="notes" rows="3"></textarea>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button type="submit" class="btn btn--primary">💾 {{ t("save_and_add_items") }}</button>
+    <a href="{{ url_for('purchases_view') }}" class="btn btn--secondary">{{ t("cancel") }}</a>
+  </div>
+</form>
+
+{% endblock %}

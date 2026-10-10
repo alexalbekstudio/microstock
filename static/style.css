@@ -1503,3 +1503,67 @@ input[type="checkbox"] {
   color: var(--text-soft);
   font-size: .9rem;
 }
+
+/* ============================================================
+   STATUS BADGES za račune nabavke
+   ============================================================ */
+
+/* Neplaćen — plava */
+.badge--status-pending {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* Plaćen — zelena */
+.badge--status-paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* Delimično plaćen — žuta */
+.badge--status-partial {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* U kašnjenju — crvena */
+.badge--status-overdue {
+  background: #fee2e2;
+  color: #991b1b;
+  animation: pulse-overdue 2s ease-in-out infinite;
+}
+
+@keyframes pulse-overdue {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .75; }
+}
+
+/* Otkazan — siva */
+.badge--status-cancelled {
+  background: #e5e7eb;
+  color: #4b5563;
+  text-decoration: line-through;
+}
+
+/* ============================================================
+   KPI kartice za statuse (leve linije u boji)
+   ============================================================ */
+
+.kpi--info::before  { background: #3b82f6; }   /* plavo */
+.kpi--paid::before  { background: #10b981; }   /* zeleno */
+.kpi--warn::before  { background: #f59e0b; }   /* žuto */
+.kpi--overdue::before { background: #ef4444; } /* crveno */
+
+.kpi--overdue {
+  background: #fef2f2;
+}
+.kpi--overdue .kpi__value {
+  color: #dc2626;
+}
+
+/* Statusi narudžbina */
+.badge--status-new       { background: #dbeafe; color: #1e40af; }
+.badge--status-paid      { background: #dcfce7; color: #166534; }
+.badge--status-shipped   { background: #fef3c7; color: #92400e; }
+.badge--status-done      { background: #dcfce7; color: #166534; }
+.badge--status-cancelled { background: #e5e7eb; color: #4b5563; text-decoration: line-through; }

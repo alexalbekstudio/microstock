@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ t("purchases_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}🧾 {{ t("purchases_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>🧾 {{ t("purchases_title") }}</h1>
+  <div class="page-header__actions">
+    {% if current_user.role in ('admin', 'manager') %}
+      <a href="{{ url_for('purchase_new') }}" class="btn btn--primary">➕ {{ t("new_purchase") }}</a>
+      <a href="{{ url_for('purchases_reports') }}" class="btn btn--secondary">📊 {{ t("purchase_reports") }}</a>
+    {% endif %}
+  </div>
+</div>
+
+{# KPI #}
+<div class="kpi-strip">
+  <div class="kpi kpi--info">
+    <div class="kpi__label">🔵 {{ t("status_pending") }}</div>
+    <div class="kpi__value">{{ kpi.pending.n }}</div>
+    <div class="kpi__meta">{{ display_money(kpi.pending.total) }}</div>
+  </div>
+  <div class="kpi kpi--paid">
+    <div class="kpi__label">🟢 {{ t("status_paid") }}</div>
+    <div class="kpi__value">{{ kpi.paid.n }}</div>
+    <div class="kpi__meta">{{ display_money(kpi.paid.total) }}</div>
+  </div>
+  <div class="kpi kpi--warn">
+    <div class="kpi__label">🟡 {{ t("status_partial") }}</div>
+    <div class="kpi__value">{{ kpi.partial.n }}</div>
+    <div class="kpi__meta">{{ display_money(kpi.partial.total) }}</div>
+  </div>
+  <div class="kpi {% if kpi.overdue.n > 0 %}kpi--overdue{% endif %}">
+    <div class="kpi__label">🔴 {{ t("status_overdue") }}</div>
+    <div class="kpi__value">{{ kpi.overdue.n }}</div>
+    <div class="kpi__meta">{{ display_money(kpi.overdue.total) }}</div>
+  </div>
+</div>
+
+{# Filter #}
+<form method="get" class="filter-form">
+  <input type="text" name="q" placeholder="{{ t('search_purchase_ph') }}" value="{{ search }}">
+
+  <select name="status">
+    <option value="">{{ t("filter_all_statuses") }}</option>
+    <option value="pending" {% if f_status=='pending' %}selected{% endif %}>{{ t("status_pending") }}</option>
+    <option value="paid" {% if f_status=='paid' %}selected{% endif %}>{{ t("status_paid") }}</option>
+    <option value="partial" {% if f_status=='partial' %}selected{% endif %}>{{ t("status_partial") }}</option>
+    <option value="overdue" {% if f_status=='overdue' %}selected{% endif %}>{{ t("status_overdue") }}</option>
+    <option value="cancelled" {% if f_status=='cancelled' %}selected{% endif %}>{{ t("status_cancelled") }}</option>
+  </select>
+
+  <select name="supplier_id">
+    <option value="">{{ t("filter_all_suppliers") }}</option>
+    {% for s in suppliers %}
+      <option value="{{ s.id }}" {% if f_supplier==s.id %}selected{% endif %}>{{ s.name }}</option>
+    {% endfor %}
+  </select>
+
+  <button type="submit" class="btn btn--primary">{{ t("filter") }}</button>
+  <a href="{{ url_for('purchases_view') }}" class="btn btn--secondary">{{ t("reset") }}</a>
+</form>
+
+{# Lista #}
+{% if invoices %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>{{ t("invoice_number") }}</th>
+        <th>{{ t("supplier") }}</th>
+        <th>{{ t("invoice_date") }}</th>
+        <th>{{ t("due_date") }}</th>
+        <th class="num">{{ t("amount") }}</th>
+        <th>{{ t("status") }}</th>
+        <th>📎</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in invoices %}
+      <tr>
+        <td>{{ inv.id }}</td>
+        <td>{{ inv.invoice_number or "—" }}</td>
+        <td>{{ inv.supplier_name or "—" }}</td>
+        <td>{{ inv.invoice_date or "—" }}</td>
+        <td>{{ inv.due_date or "—" }}</td>
+        <td class="num"><b>{{ display_money(inv.amount) }}</b> {{ inv.currency }}</td>
+        <td>
+          <span class="badge badge--status-{{ inv.status }}">
+            {% if inv.status == 'paid' %}🟢
+            {% elif inv.status == 'pending' %}🔵
+            {% elif inv.status == 'partial' %}🟡
+            {% elif inv.status == 'overdue' %}🔴
+            {% else %}⚫{% endif %}
+            {{ t("status_" ~ inv.status) }}
+          </span>
+        </td>
+        <td>{% if inv.file_name %}📎{% endif %}</td>
+        <td><a href="{{ url_for('purchase_detail', iid=inv.id) }}" class="btn btn--secondary btn--sm">→</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty">
+  <p>{{ t("no_purchases") }}</p>
+  {% if current_user.role in ('admin', 'manager') %}
+    <a href="{{ url_for('purchase_new') }}" class="btn btn--primary">➕ {{ t("add_first_purchase") }}</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

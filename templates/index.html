@@ -163,6 +163,21 @@
   </div>
   {% endif %}
 
+  {# === DUG DOBAVLJAČIMA === #}
+  {% if purchases and purchases.total > 0 %}
+  <div class="kpi {% if purchases.overdue > 0 %}kpi--overdue{% else %}kpi--warn{% endif %}">
+    <div class="kpi__label">🧾 {{ t("supplier_debt") }}</div>
+    <div class="kpi__value">{{ display_money(purchases.total) }}</div>
+    <div class="kpi__meta">
+      {% if purchases.overdue > 0 %}
+        ⚠️ {{ display_money(purchases.overdue) }} {{ t("overdue_lower") }}
+      {% else %}
+        {{ t("all_on_time") }}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
 {# ============ 4. GRAFIKONI ============ #}
 <div class="split">
   <div>
@@ -194,7 +209,7 @@
         <td>{{ o.customer_name }}</td>
         <td>{{ o.channel }}</td>
         <td class="num">{{ display_money(o.total or 0) }}</td>
-        <td><span class="badge badge--{{ o.status }}">{{ o.status }}</span></td>
+        <td><span class="badge badge--status-{{ o.status }}">{{ o.status }}</span></td>
         <td><a class="btn-link btn--sm" href="/orders/{{ o.id }}">{{ t("open") }}</a></td>
       </tr>
       {% endfor %}

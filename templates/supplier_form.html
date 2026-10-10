@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ t("edit_supplier") if s else t("new_supplier") }} — MicroStock{% endblock %}
+{% block topbar_title %}🏢 {{ t("supplier") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>{{ t("edit_supplier") if s else t("new_supplier") }}</h1>
+  <a href="{{ url_for('suppliers_view') }}" class="btn btn--secondary">← {{ t("back") }}</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <h3>{{ t("supplier_basic") }}</h3>
+
+    <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none;">
+
+      <div class="form-row">
+        <label>{{ t("supplier_name") }} *</label>
+        <input name="name" value="{{ s.name if s else '' }}" required>
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("contact_person") }}</label>
+        <input name="contact_person" value="{{ s.contact_person if s else '' }}">
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("email") }}</label>
+        <input name="email" type="email" value="{{ s.email if s else '' }}">
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("phone") }}</label>
+        <input name="phone" value="{{ s.phone if s else '' }}">
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("address") }}</label>
+        <input name="address" value="{{ s.address if s else '' }}">
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("city") }}</label>
+        <input name="city" value="{{ s.city if s else '' }}">
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("tax_id") }}</label>
+        <input name="tax_id" value="{{ s.tax_id if s else '' }}">
+      </div>
+
+      <div class="form-row">
+        <label>{{ t("product_categories") }}</label>
+        <input name="product_categories" value="{{ s.product_categories if s else '' }}"
+               placeholder="{{ t('product_categories_ph') }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>{{ t("banking_info") }}</h3>
+    <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none;">
+      <div class="form-row">
+        <label>{{ t("iban") }}</label>
+        <input name="iban" value="{{ s.iban if s else '' }}" placeholder="RS35...">
+      </div>
+      <div class="form-row">
+        <label>{{ t("swift") }}</label>
+        <input name="swift" value="{{ s.swift if s else '' }}" placeholder="XXXXRS22">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>{{ t("notes") }}</h3>
+    <div class="form-row">
+      <textarea name="notes" rows="3" placeholder="{{ t('notes') }}">{{ s.notes if s else '' }}</textarea>
+    </div>
+
+    {% if s %}
+    <div class="form-row">
+      <label class="checkbox-label">
+        <input type="checkbox" name="active" {% if s.active %}checked{% endif %}>
+        {{ t("supplier_active") }}
+      </label>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="btn-row">
+    <button type="submit" class="btn btn--primary">💾 {{ t("save") }}</button>
+
+    {% if s %}
+      <form method="post" action="{{ url_for('supplier_archive', sid=s.id) }}"
+            style="display:inline"
+            onsubmit="return confirm('{{ t('confirm_archive_supplier') }}')">
+        <button type="submit" class="btn btn--secondary">📦 {{ t("archive") }}</button>
+      </form>
+    {% endif %}
+  </div>
+</form>
+
+{% endblock %}

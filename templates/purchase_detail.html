@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}{{ t("purchase") }} #{{ inv.id }} — MicroStock{% endblock %}
+{% block topbar_title %}🧾 {{ t("purchase") }} #{{ inv.id }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>🧾 {{ t("purchase") }} #{{ inv.id }}</h1>
+  <div class="page-header__actions">
+    <a href="{{ url_for('purchases_view') }}" class="btn btn--secondary">← {{ t("back") }}</a>
+    {% if inv.file_name %}
+      <a href="{{ url_for('purchase_file', iid=inv.id) }}" class="btn btn--secondary">📎 {{ t("download_file") }}</a>
+    {% endif %}
+  </div>
+</div>
+
+{# Status menjanje #}
+<div class="card">
+  <h3>{{ t("status") }}</h3>
+  <div class="btn-row">
+    {% set statuses = [
+      ('pending',   'status_pending',   '🔵'),
+      ('paid',      'status_paid',      '🟢'),
+      ('partial',   'status_partial',   '🟡'),
+      ('overdue',   'status_overdue',   '🔴'),
+      ('cancelled', 'status_cancelled', '⚫')
+    ] %}
+    {% for key, label, icon in statuses %}
+      <form method="post"
+            action="{{ url_for('purchase_set_status', iid=inv.id, status=key) }}"
+            style="display:inline">
+        <button type="submit"
+                class="btn {{ 'btn--primary' if inv.status == key else 'btn--secondary' }} btn--sm">
+          {{ icon }} {{ t(label) }}
+        </button>
+      </form>
+    {% endfor %}
+  </div>
+  <p class="muted small" style="margin-top:.5rem">
+    {{ t("purchase_paid_hint") }}
+  </p>
+</div>
+
+{# Osnovni podaci #}
+<form method="post">
+  <div class="card">
+    <h3>{{ t("purchase_basic") }}</h3>
+    <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none;">
+      <div class="form-row">
+        <label>{{ t("supplier") }}</label>
+        <select name="supplier_id">
+          {% for s in suppliers %}
+            <option value="{{ s.id }}" {% if s.id == inv.supplier_id %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <label>{{ t("invoice_number") }}</label>
+        <input name="invoice_number" value="{{ inv.invoice_number or '' }}">
+      </div>
+      <div class="form-row">
+        <label>{{ t("invoice_date") }}</label>
+        <input name="invoice_date" type="date" value="{{ inv.invoice_date or '' }}">
+      </div>
+      <div class="form-row">
+        <label>{{ t("due_date") }}</label>
+        <input name="due_date" type="date" value="{{ inv.due_date or '' }}">
+      </div>
+      <div class="form-row">
+        <label>{{ t("amount") }}</label>
+        <input name="amount" type="number" step="0.01" value="{{ inv.amount or 0 }}">
+      </div>
+      <div class="form-row">
+        <label>{{ t("currency") }}</label>
+        <select name="currency">
+          <option value="RSD" {% if inv.currency=='RSD' %}selected{% endif %}>RSD</option>
+          <option value="EUR" {% if inv.currency=='EUR' %}selected{% endif %}>EUR</option>
+          <option value="USD" {% if inv.currency=='USD' %}selected{% endif %}>USD</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>{{ t("status") }}</label>
+        <select name="status">
+          {% for s in ['pending', 'paid', 'partial', 'overdue', 'cancelled'] %}
+            <option value="{{ s }}" {% if inv.status==s %}selected{% endif %}>{{ t("status_" ~ s) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label>{{ t("notes") }}</label>
+      <input name="notes" value="{{ inv.notes or '' }}">
+    </div>
+
+    <button type="submit" class="btn btn--primary">💾 {{ t("save") }}</button>
+  </div>
+</form>
+
+{# Stavke #}
+<h2>{{ t("purchase_items") }} ({{ items|length }})</h2>
+
+{# Forma za dodavanje stavke #}
+{% if current_user.role in ('admin', 'manager') %}
+<div class="card">
+  <h3>➕ {{ t("add_item") }}</h3>
+  <form method="post" action="{{ url_for('purchase_item_add', iid=inv.id) }}">
+    <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none;">
+      <div class="form-row">
+        <label>{{ t("col_product") }}</label>
+        <select name="product_id">
+          <option value="">— {{ t("select_product") }} —</option>
+          {% for p in products %}
+            <option value="{{ p.id }}">{{ p.sku }} — {{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <label>{{ t("description") }} (opciono)</label>
+        <input name="description" placeholder="npr. materijal za pakovanje">
+      </div>
+      <div class="form-row">
+        <label>{{ t("col_qty") }}</label>
+        <input name="qty" type="number" step="0.01" min="0.01" required>
+      </div>
+      <div class="form-row">
+        <label>{{ t("unit_cost") }}</label>
+        <input name="unit_cost" type="number" step="0.01" min="0" required>
+      </div>
+    </div>
+    <button type="submit" class="btn btn--primary">➕ {{ t("add") }}</button>
+  </form>
+</div>
+{% endif %}
+
+{# Lista stavki #}
+{% if items %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("col_product") }}</th>
+        <th>{{ t("description") }}</th>
+        <th class="num">{{ t("col_qty") }}</th>
+        <th class="num">{{ t("unit_cost") }}</th>
+        <th class="num">{{ t("col_total") }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for it in items %}
+      <tr>
+        <td>
+          {% if it.product_name %}
+            <b>{{ it.product_name }}</b> <span class="muted small">({{ it.sku }})</span>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>{{ it.description or "—" }}</td>
+        <td class="num">{{ it.qty }}</td>
+        <td class="num">{{ display_money(it.unit_cost) }}</td>
+        <td class="num"><b>{{ display_money(it.total) }}</b></td>
+        <td>
+          {% if current_user.role in ('admin', 'manager') %}
+          <form method="post" action="{{ url_for('purchase_item_delete', item_id=it.id) }}"
+                style="display:inline"
+                onsubmit="return confirm('{{ t('confirm_delete_item') }}')">
+            <button type="submit" class="link-btn">🗑️</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th colspan="4" style="text-align:right">{{ t("total_label") }}:</th>
+        <th class="num">{{ display_money(inv.amount) }} {{ inv.currency }}</th>
+        <th></th>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% else %}
+<p class="empty">{{ t("no_items") }}</p>
+{% endif %}
+
+{% if current_user.role == 'admin' %}
+<div class="admin-tools" style="margin-top:2rem">
+  <form method="post" action="{{ url_for('purchase_delete', iid=inv.id) }}"
+        onsubmit="return confirm('{{ t('confirm_delete_purchase') }}')">
+    <button type="submit" class="btn btn--danger">🗑️ {{ t("delete_purchase") }}</button>
+  </form>
+</div>
+{% endif %}
+
+{% endblock %}

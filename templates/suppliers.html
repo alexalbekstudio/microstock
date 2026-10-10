@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ t("suppliers_title") }} — MicroStock{% endblock %}
+{% block topbar_title %}🏢 {{ t("suppliers_title") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>🏢 {{ t("suppliers_title") }}</h1>
+  <div class="page-header__actions">
+    {% if current_user.role in edit_roles %}
+      <a href="{{ url_for('supplier_new') }}" class="btn btn--primary">➕ {{ t("new_supplier") }}</a>
+    {% endif %}
+  </div>
+</div>
+
+<p class="muted">{{ t("suppliers_desc") }}</p>
+
+{# ==== FILTER ==== #}
+<form method="get" class="filter-form">
+  <input type="text" name="q" placeholder="{{ t('search_supplier_ph') }}" value="{{ search }}">
+  <label>
+    <input type="checkbox" name="active" value="1" {% if only_active %}checked{% endif %}>
+    {{ t("only_active") }}
+  </label>
+  <button type="submit" class="btn btn--primary">{{ t("filter") }}</button>
+  <a href="{{ url_for('suppliers_view') }}" class="btn btn--secondary">{{ t("reset") }}</a>
+</form>
+
+{# ==== LISTA ==== #}
+{% if suppliers %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("supplier_name") }}</th>
+        <th>{{ t("contact_person") }}</th>
+        <th>{{ t("email") }}</th>
+        <th>{{ t("phone") }}</th>
+        <th>{{ t("city") }}</th>
+        <th>{{ t("product_categories") }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in suppliers %}
+      <tr class="{{ 'archived' if not s.active }}">
+        <td><b>{{ s.name }}</b></td>
+        <td>{{ s.contact_person or "—" }}</td>
+        <td>{% if s.email %}<a href="mailto:{{ s.email }}">{{ s.email }}</a>{% else %}—{% endif %}</td>
+        <td>{% if s.phone %}<a href="tel:{{ s.phone }}">{{ s.phone }}</a>{% else %}—{% endif %}</td>
+        <td>{{ s.city or "—" }}</td>
+        <td>{{ s.product_categories or "—" }}</td>
+        <td>
+          <a href="{{ url_for('supplier_detail', sid=s.id) }}" class="btn btn--secondary btn--sm">✏️</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty">
+  <p>{{ t("no_suppliers") }}</p>
+  {% if current_user.role in edit_roles %}
+    <a href="{{ url_for('supplier_new') }}" class="btn btn--primary">➕ {{ t("add_first_supplier") }}</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

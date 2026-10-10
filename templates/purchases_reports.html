@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ t("purchase_reports") }} — MicroStock{% endblock %}
+{% block topbar_title %}📊 {{ t("purchase_reports") }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>📊 {{ t("purchase_reports") }}</h1>
+  <div class="page-header__actions">
+    <a href="{{ url_for('purchases_view') }}" class="btn btn--secondary">← {{ t("back_to_invoices") }}</a>
+  </div>
+</div>
+
+{# KPI — ukupan dug #}
+<div class="kpi-strip">
+  <div class="kpi kpi--info">
+    <div class="kpi__label">🔵 {{ t("status_pending") }}</div>
+    <div class="kpi__value">{{ display_money(unpaid.pending) }}</div>
+  </div>
+  <div class="kpi kpi--warn">
+    <div class="kpi__label">🟡 {{ t("status_partial") }}</div>
+    <div class="kpi__value">{{ display_money(unpaid.partial) }}</div>
+  </div>
+  <div class="kpi {% if unpaid.overdue > 0 %}kpi--overdue{% endif %}">
+    <div class="kpi__label">🔴 {{ t("status_overdue") }}</div>
+    <div class="kpi__value">{{ display_money(unpaid.overdue) }}</div>
+  </div>
+  <div class="kpi kpi--bad">
+    <div class="kpi__label">💰 {{ t("total_debt") }}</div>
+    <div class="kpi__value">{{ display_money(unpaid.total) }}</div>
+  </div>
+</div>
+
+{# Filter datum #}
+<form method="get" class="filter-form">
+  <label>{{ t("from_date") }}:</label>
+  <input type="date" name="from" value="{{ date_from }}">
+  <label>{{ t("to_date") }}:</label>
+  <input type="date" name="to" value="{{ date_to }}">
+  <button type="submit" class="btn btn--primary">{{ t("filter") }}</button>
+  <a href="{{ url_for('purchases_reports') }}" class="btn btn--secondary">{{ t("reset") }}</a>
+</form>
+
+{# Po dobavljaču #}
+<h2>🏢 {{ t("report_by_supplier") }}</h2>
+{% if by_supplier %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("supplier") }}</th>
+        <th class="num">{{ t("invoice_count") }}</th>
+        <th class="num">{{ t("total_invoiced") }}</th>
+        <th class="num">{{ t("total_paid") }}</th>
+        <th class="num">{{ t("total_unpaid") }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in by_supplier %}
+      <tr>
+        <td><b>{{ r.supplier_name }}</b></td>
+        <td class="num">{{ r.invoice_count }}</td>
+        <td class="num">{{ display_money(r.total_amount) }}</td>
+        <td class="num text-success">{{ display_money(r.paid_amount) }}</td>
+        <td class="num {% if r.unpaid_amount > 0 %}text-danger{% endif %}">
+          {{ display_money(r.unpaid_amount) }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">{{ t("no_data") }}</p>
+{% endif %}
+
+{# Po mesecu #}
+<h2>📅 {{ t("report_by_month") }}</h2>
+{% if by_month %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t("month") }}</th>
+        <th class="num">{{ t("invoice_count") }}</th>
+        <th class="num">{{ t("total_invoiced") }}</th>
+        <th class="num">{{ t("total_paid") }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in by_month %}
+      <tr>
+        <td><b>{{ r.month }}</b></td>
+        <td class="num">{{ r.invoice_count }}</td>
+        <td class="num">{{ display_money(r.total_amount) }}</td>
+        <td class="num text-success">{{ display_money(r.paid_amount) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">{{ t("no_data") }}</p>
+{% endif %}
+
+{% endblock %}

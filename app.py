@@ -80,6 +80,15 @@ def inject_currency_rates():
         "usd_rate": usd,
     }
 
+@app.context_processor
+def inject_roles():
+    return {
+        "EDIT_ROLES": EDIT_ROLES,
+        "ALL_ROLES": ALL_ROLES,
+        "ADMIN_ONLY": ADMIN_ONLY,
+        "edit_roles": EDIT_ROLES,   # za template-e koji koriste malo slovo
+    }
+
 # ==================== JEZIK I VALUTA ====================
 
 @app.route("/set-language/<lang>")
@@ -1783,6 +1792,418 @@ def api_search():
         "orders":   [dict(r) for r in orders],
         "projects": [dict(r) for r in projects],
     })
+
+# ==================== DOBAVLJAČI ====================
+
+@app.route("/suppliers")
+@login_required
+@role_required(*ALL_ROLES)
+def suppliers_view():
+    """Lista dobavljača."""
+    import suppliers as supp
+
+    search = request.args.get("q", "").strip()
+    only_active = request.args.get("active") == "1"
+
+    return render_template(
+        "suppliers.html",
+        suppliers=supp.list_suppliers(search, only_active),
+        search=search,
+        only_active=only_active,
+        edit_roles=EDIT_ROLES,
+    )
+
+
+@app.route("/suppliers/new", methods=["GET", "POST"])
+@login_required
+@role_required(*EDIT_ROLES)
+def supplier_new():
+    """Novi dobavljač."""
+    import suppliers as supp
+
+    if request.method == "POST":
+        try:
+            supp.add_supplier(
+                name=request.form["name"].strip(),
+                contact_person=request.form.get("contact_person", "").strip(),
+                email=request.form.get("email", "").strip(),
+                phone=request.form.get("phone", "").strip(),
+                address=request.form.get("address", "").strip(),
+                city=request.form.get("city", "").strip(),
+                tax_id=request.form.get("tax_id", "").strip(),
+                iban=request.form.get("iban", "").strip(),
+                swift=request.form.get("swift", "").strip(),
+                product_categories=request.form.get("product_categories", "").strip(),
+                notes=request.form.get("notes", "").strip(),
+            )
+            flash("Dobavljač dodat.", "success")
+            return redirect(url_for("suppliers_view"))
+        except Exception as e:
+            flash(f"Greška: {e}", "err")
+
+    return render_template("supplier_form.html", s=None)
+
+
+@app.route("/suppliers/<int:sid>", methods=["GET", "POST"])
+@login_required
+@role_required(*EDIT_ROLES)
+def supplier_detail(sid):
+    """Detalji + izmena dobavljača."""
+    import suppliers as supp
+
+    s = supp.get_supplier(sid)
+    if not s:
+        abort(404)
+
+    if request.method == "POST":
+        try:
+            supp.update_supplier(
+                sid,
+                name=request.form["name"].strip(),
+                contact_person=request.form.get("contact_person", "").strip(),
+                email=request.form.get("email", "").strip(),
+                phone=request.form.get("phone", "").strip(),
+                address=request.form.get("address", "").strip(),
+                city=request.form.get("city", "").strip(),
+                tax_id=request.form.get("tax_id", "").strip(),
+                iban=request.form.get("iban", "").strip(),
+                swift=request.form.get("swift", "").strip(),
+                product_categories=request.form.get("product_categories", "").strip(),
+                notes=request.form.get("notes", "").strip(),
+                active=1 if request.form.get("active") == "on" else 0,
+            )
+            flash("Dobavljač sačuvan.", "success")
+            return redirect(url_for("supplier_detail", sid=sid))
+        except Exception as e:
+            flash(f"Greška: {e}", "err")
+
+    return render_template("supplier_form.html", s=s)
+
+
+@app.route("/suppliers/<int:sid>/archive", methods=["POST"])
+@login_required
+@role_required(*EDIT_ROLES)
+def supplier_archive(sid):
+    """Arhiviraj dobavljača."""
+    import suppliers as supp
+    supp.archive_supplier(sid)
+    flash("Dobavljač arhiviran.", "success")
+    return redirect(url_for("suppliers_view"))
+
+
+@app.route("/suppliers/<int:sid>/delete", methods=["POST"])
+@login_required
+@role_required(*ADMIN_ONLY)
+def supplier_delete(sid):
+    """Obriši dobavljača (samo ako nema računa)."""
+    import suppliers as supp
+    try:
+        supp.delete_supplier(sid)
+        flash("Dobavljač obrisan.", "success")
+    except Exception as e:
+        flash(str(e), "err")
+    return redirect(url_for("suppliers_view"))
+
+
+@app.route("/api/suppliers")
+@login_required
+@role_required(*ALL_ROLES)
+def api_suppliers():
+    """JSON lista dobavljača (za autocomplete)."""
+    import suppliers as supp
+    rows = supp.list_suppliers(only_active=True)
+    return jsonify([
+        {"id": r["id"], "name": r["name"]}
+        for r in rows
+    ])
+
+# ==================== RAČUNI NABAVKE ====================
+
+@app.route("/purchases")
+@login_required
+@role_required(*ALL_ROLES)
+def purchases_view():
+    """Lista računa nabavke."""
+    import purchases as purch
+    import suppliers as supp
+
+    search = request.args.get("q", "").strip()
+    status = request.args.get("status", "").strip() or None
+    supplier_id = request.args.get("supplier_id", type=int)
+
+    return render_template(
+        "purchases.html",
+        invoices=purch.list_invoices(search, status, supplier_id),
+        suppliers=supp.list_suppliers(only_active=False),
+        search=search,
+        f_status=status or "",
+        f_supplier=supplier_id,
+        kpi=purch.statuses_count(),
+    )
+
+
+@app.route("/purchases/new", methods=["GET", "POST"])
+@login_required
+@role_required(*EDIT_ROLES)
+def purchase_new():
+    """Novi račun nabavke."""
+    import purchases as purch
+    import suppliers as supp
+    import models
+
+    if request.method == "POST":
+        try:
+            # Fajl (opciono)
+            file_data = None
+            file_name = None
+            file_mime = None
+            f = request.files.get("file")
+            if f and f.filename:
+                file_data = f.read()
+                file_name = f.filename
+                file_mime = f.mimetype or "application/octet-stream"
+                # Limit 5 MB
+                if len(file_data) > 5 * 1024 * 1024:
+                    flash("Fajl je prevelik (max 5 MB).", "err")
+                    return redirect(url_for("purchase_new"))
+
+            iid = purch.add_invoice(
+                supplier_id=request.form.get("supplier_id", type=int),
+                invoice_number=request.form.get("invoice_number", "").strip(),
+                invoice_date=request.form.get("invoice_date") or None,
+                due_date=request.form.get("due_date") or None,
+                amount=0,  # privremeno — stavke će preračunati
+                currency=request.form.get("currency", "RSD"),
+                status=request.form.get("status", "pending"),
+                file_data=file_data,
+                file_name=file_name,
+                file_mime=file_mime,
+                notes=request.form.get("notes", "").strip(),
+            )
+            flash("Račun dodat. Dodaj stavke.", "success")
+            return redirect(url_for("purchase_detail", iid=iid))
+        except Exception as e:
+            flash(f"Greška: {e}", "err")
+
+    return render_template(
+        "purchase_form.html",
+        inv=None,
+        suppliers=supp.list_suppliers(only_active=True),
+        products=models.list_products(include_inactive=False),
+    )
+
+
+@app.route("/purchases/<int:iid>", methods=["GET", "POST"])
+@login_required
+@role_required(*EDIT_ROLES)
+def purchase_detail(iid):
+    """Detalji računa + stavke."""
+    import purchases as purch
+    import suppliers as supp
+    import models
+
+    inv = purch.get_invoice(iid)
+    if not inv:
+        abort(404)
+
+    if request.method == "POST":
+        # Izmena osnovnih podataka
+        try:
+            purch.update_invoice(
+                iid,
+                supplier_id=request.form.get("supplier_id", type=int),
+                invoice_number=request.form.get("invoice_number", "").strip(),
+                invoice_date=request.form.get("invoice_date") or None,
+                due_date=request.form.get("due_date") or None,
+                amount=request.form.get("amount", type=float) or 0,
+                currency=request.form.get("currency", "RSD"),
+                status=request.form.get("status", "pending"),
+                notes=request.form.get("notes", "").strip(),
+            )
+            flash("Račun sačuvan.", "success")
+        except Exception as e:
+            flash(f"Greška: {e}", "err")
+        return redirect(url_for("purchase_detail", iid=iid))
+
+    return render_template(
+        "purchase_detail.html",
+        inv=inv,
+        items=purch.list_items(iid),
+        suppliers=supp.list_suppliers(only_active=False),
+        products=models.list_products(include_inactive=False),
+    )
+
+
+@app.route("/purchases/<int:iid>/item/add", methods=["POST"])
+@login_required
+@role_required(*EDIT_ROLES)
+def purchase_item_add(iid):
+    """Dodaje stavku na račun."""
+    import purchases as purch
+
+    try:
+        product_id = request.form.get("product_id", type=int)
+        description = request.form.get("description", "").strip()
+        qty = request.form.get("qty", type=float) or 0
+        unit_cost = request.form.get("unit_cost", type=float) or 0
+
+        if qty <= 0:
+            flash("Količina mora biti > 0.", "err")
+            return redirect(url_for("purchase_detail", iid=iid))
+
+        if not product_id and not description:
+            flash("Izaberi proizvod ili unesi opis.", "err")
+            return redirect(url_for("purchase_detail", iid=iid))
+
+        purch.add_item(iid, product_id, description, qty, unit_cost)
+        purch.recalc_amount(iid)
+
+        # Ako je račun već plaćen — odmah ažuriraj cost
+        inv = purch.get_invoice(iid)
+        if inv and inv["status"] in ("paid", "partial"):
+            try:
+                purch.recalc_product_costs([product_id] if product_id else None)
+            except Exception:
+                pass
+
+        flash("Stavka dodata.", "success")
+
+    except Exception as e:
+        flash(f"Greška: {e}", "err")
+
+    return redirect(url_for("purchase_detail", iid=iid))
+
+
+@app.route("/purchases/item/<int:item_id>/delete", methods=["POST"])
+@login_required
+@role_required(*EDIT_ROLES)
+def purchase_item_delete(item_id):
+    """Briše stavku i preračuna iznos."""
+    import purchases as purch
+
+    conn = connect()
+    row = conn.execute(
+        "SELECT purchase_invoice_id FROM purchase_items WHERE id=%s",
+        (item_id,)
+    ).fetchone()
+    conn.close()
+
+    if not row:
+        abort(404)
+
+    iid = row["purchase_invoice_id"]
+    purch.delete_item(item_id)
+    purch.recalc_amount(iid)
+    flash("Stavka obrisana.", "success")
+    return redirect(url_for("purchase_detail", iid=iid))
+
+
+@app.route("/purchases/<int:iid>/status/<status>", methods=["POST"])
+@login_required
+@role_required(*EDIT_ROLES)
+def purchase_set_status(iid, status):
+    """Menja status računa. Ako je 'paid', smanjuje kapital."""
+    import purchases as purch
+    from datetime import date
+
+    if status not in ("pending", "paid", "overdue", "cancelled", "partial"):
+        abort(400)
+
+    inv = purch.get_invoice(iid)
+    if not inv:
+        abort(404)
+
+    old_status = inv["status"]
+
+    # Ako prelazi u 'paid' — smanji kapital
+    if status == "paid" and old_status != "paid":
+        try:
+            from capital import add_transaction
+            add_transaction(
+                user_id=current_user.id,
+                tx_type="purchase",
+                amount=float(inv["amount"] or 0),
+                note=f"Račun #{inv['invoice_number'] or inv['id']} — {inv['supplier_name'] or 'dobavljač'}",
+            )
+            flash(f"Kapital smanjen za {inv['amount']:.2f} {inv['currency']}.", "success")
+        except Exception as e:
+            flash(f"Greška pri ažuriranju kapitala: {e}", "err")
+
+    # Ako se VRAĆA iz 'paid' u 'pending' — vrati kapital
+    if old_status == "paid" and status != "paid":
+        try:
+            from capital import add_transaction
+            add_transaction(
+                user_id=current_user.id,
+                tx_type="adjustment",
+                amount=float(inv["amount"] or 0),
+                note=f"Storno računa #{inv['invoice_number'] or inv['id']}",
+            )
+            flash(f"Kapital vraćen za {inv['amount']:.2f}.", "success")
+        except Exception as e:
+            flash(f"Greška: {e}", "err")
+
+    purch.set_status(iid, status, paid_date=str(date.today()) if status == "paid" else None)
+    # Auto-update product costs ako je plaćeno ili delimično plaćeno
+    if status in ("paid", "partial"):
+        try:
+            updated = purch.recalc_product_costs()
+            if updated > 0:
+                flash(f"Ažurirano {updated} nabavnih cena proizvoda.", "success")
+        except Exception as e:
+            flash(f"Greška pri update cena: {e}", "err")
+    flash(f"Status promenjen na '{status}'.", "success")
+    return redirect(url_for("purchase_detail", iid=iid))
+
+
+@app.route("/purchases/<int:iid>/file")
+@login_required
+@role_required(*ALL_ROLES)
+def purchase_file(iid):
+    """Preuzimanje skeniranog fajla."""
+    import purchases as purch
+
+    row = purch.get_file(iid)
+    if not row or not row["file_data"]:
+        abort(404)
+
+    data = bytes(row["file_data"])
+    return send_file(
+        io.BytesIO(data),
+        mimetype=row["file_mime"] or "application/octet-stream",
+        as_attachment=True,
+        download_name=row["file_name"] or f"racun-{iid}.pdf",
+    )
+
+
+@app.route("/purchases/<int:iid>/delete", methods=["POST"])
+@login_required
+@role_required(*ADMIN_ONLY)
+def purchase_delete(iid):
+    """Briše račun."""
+    import purchases as purch
+    purch.delete_invoice(iid)
+    flash("Račun obrisan.", "success")
+    return redirect(url_for("purchases_view"))
+
+@app.route("/purchases/reports")
+@login_required
+@role_required(*ALL_ROLES)
+def purchases_reports():
+    """Izveštaji za nabavku."""
+    import purchases as purch
+
+    date_from = request.args.get("from") or None
+    date_to = request.args.get("to") or None
+
+    return render_template(
+        "purchases_reports.html",
+        by_supplier=purch.report_by_supplier(date_from, date_to),
+        by_month=purch.report_by_month(12),
+        unpaid=purch.unpaid_total(),
+        date_from=date_from or "",
+        date_to=date_to or "",
+    )
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

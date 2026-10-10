@@ -89,6 +89,83 @@ def _run_migrations(conn):
         CREATE INDEX IF NOT EXISTS idx_password_resets_token
         ON password_resets(token)
         """,
+
+                # 8) suppliers — dobavljači
+        """
+        CREATE TABLE IF NOT EXISTS suppliers (
+            id                SERIAL PRIMARY KEY,
+            name              TEXT NOT NULL,
+            contact_person    TEXT,
+            email             TEXT,
+            phone             TEXT,
+            address           TEXT,
+            city              TEXT,
+            tax_id            TEXT,
+            iban              TEXT,
+            swift             TEXT,
+            product_categories TEXT,
+            notes             TEXT,
+            active            INTEGER NOT NULL DEFAULT 1,
+            created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+
+                # 10) purchase_invoices — računi nabavke
+        """
+        CREATE TABLE IF NOT EXISTS purchase_invoices (
+            id              SERIAL PRIMARY KEY,
+            supplier_id     INTEGER REFERENCES suppliers(id) ON DELETE SET NULL,
+            invoice_number  TEXT,
+            invoice_date    DATE,
+            due_date        DATE,
+            paid_date       DATE,
+            amount          NUMERIC(12,2) NOT NULL DEFAULT 0,
+            currency        TEXT NOT NULL DEFAULT 'RSD',
+            status          TEXT NOT NULL DEFAULT 'pending',
+            file_data       BYTEA,
+            file_name       TEXT,
+            file_mime       TEXT,
+            notes           TEXT,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+
+        # 11) Index za pretragu računa
+        """
+        CREATE INDEX IF NOT EXISTS idx_purchase_invoices_supplier
+        ON purchase_invoices(supplier_id)
+        """,
+
+        """
+        CREATE INDEX IF NOT EXISTS idx_purchase_invoices_status
+        ON purchase_invoices(status)
+        """,
+
+        # 12) purchase_items — stavke računa
+        """
+        CREATE TABLE IF NOT EXISTS purchase_items (
+            id                  SERIAL PRIMARY KEY,
+            purchase_invoice_id INTEGER NOT NULL REFERENCES purchase_invoices(id) ON DELETE CASCADE,
+            product_id          INTEGER REFERENCES products(id) ON DELETE SET NULL,
+            description         TEXT,
+            qty                 NUMERIC(12,2) NOT NULL DEFAULT 0,
+            unit_cost           NUMERIC(12,2) NOT NULL DEFAULT 0,
+            total               NUMERIC(12,2) NOT NULL DEFAULT 0
+        )
+        """,
+
+        """
+        CREATE INDEX IF NOT EXISTS idx_purchase_items_invoice
+        ON purchase_items(purchase_invoice_id)
+        """,
+
+        # 9) Index za pretragu dobavljača
+        """
+        CREATE INDEX IF NOT EXISTS idx_suppliers_name
+        ON suppliers(name)
+        """,
     ]
 
     for sql in migrations:
