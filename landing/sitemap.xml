@@ -1,11 +1,72 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Landing SR -->
   <url>
     <loc>https://microstock-landing.netlify.app/</loc>
     <priority>1.0</priority>
+    <changefreq>weekly</changefreq>
   </url>
+
+  <!-- Landing EN -->
   <url>
     <loc>https://microstock-landing.netlify.app/en/</loc>
     <priority>0.9</priority>
+    <changefreq>weekly</changefreq>
   </url>
+
+  <!-- Blog SR -->
+  <url>
+    <loc>https://microstock-landing.netlify.app/blog/</loc>
+    <priority>0.8</priority>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
+    <loc>https://microstock-landing.netlify.app/blog/kako-voditi-zalihe.html</loc>
+    <priority>0.7</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://microstock-landing.netlify.app/blog/5-gresaka-etsy-prodavaca.html</loc>
+    <priority>0.7</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://microstock-landing.netlify.app/blog/zasto-analitika.html</loc>
+    <priority>0.7</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://microstock-landing.netlify.app/blog/kako-izracunati-cenu.html</loc>
+    <priority>0.7</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+
+  <!-- Blog EN -->
+  <url>
+    <loc>https://microstock-landing.netlify.app/en/blog/</loc>
+    <priority>0.8</priority>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
+    <loc>https://microstock-landing.netlify.app/en/blog/how-to-manage-stock.html</loc>
+    <priority>0.7</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://microstock-landing.netlify.app/en/blog/5-etsy-mistakes.html</loc>
+    <priority>0.7</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://microstock-landing.netlify.app/en/blog/why-analytics.html</loc>
+    <priority>0.7</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://microstock-landing.netlify.app/en/blog/how-to-price-product.html</loc>
+    <priority>0.7</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+
 </urlset>
