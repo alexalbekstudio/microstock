@@ -207,6 +207,18 @@ class _ConnWrapper:
 
 
 def connect():
+    """
+    Vraća konekciju — DEMO ili prava baza, zavisno od sesije.
+    Ako je demo_mode u Flask sesiji, koristi 'demo' schema.
+    """
+    # Proveri da li smo u Flask request kontekstu i demo modu
+    try:
+        from flask import has_request_context, session
+        if has_request_context() and session.get("demo_mode"):
+            return connect_demo()
+    except Exception:
+        pass
+
     raw = _get_pool().getconn()
     return _ConnWrapper(raw, _get_pool())
 
@@ -292,3 +304,23 @@ def healthcheck():
 
 # Inicijalizuj module-level konstante
 _refresh_module_globals()
+
+# ---------------------------------------------------------------------------
+# DEMO schema (isti pool, drugi search_path)
+# ---------------------------------------------------------------------------
+
+def connect_demo():
+    """
+    Vraća konekciju u 'demo' schema (isti pool, drugi search_path).
+    Koristi se kad je demo_mode aktivan u sesiji.
+    """
+    raw = _get_pool().getconn()
+    try:
+        cur = raw.cursor()
+        try:
+            cur.execute("SET search_path TO demo, public")
+        finally:
+            cur.close()
+    except Exception as e:
+        log.error(f"Ne mogu da postavim search_path na demo: {e}")
+    return _ConnWrapper(raw, _get_pool())

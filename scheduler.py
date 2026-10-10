@@ -59,6 +59,15 @@ def init_scheduler(app):
         replace_existing=True,
     )
 
+    # Svakih sat vremena — reset demo baze
+    _scheduler.add_job(
+        func=lambda: _reset_demo(app),
+        trigger="interval",
+        hours=1,
+        id="demo_reset",
+        replace_existing=True,
+    )
+
     _scheduler.start()
     atexit.register(lambda: _scheduler.shutdown(wait=False))
     app.logger.info("Scheduler: digest 08:00, NBS kurs 08:05 (pon-pet)")
@@ -226,3 +235,13 @@ def refresh_from_nbs():
         return True, n, f"Uspešno povučeno {n} kurseva za {data['rate_date']}."
     except Exception as e:
         return False, 0, f"Greška: {e}"
+
+def _reset_demo(app):
+    """Resetuje demo bazu svakih sat vremena."""
+    with app.app_context():
+        try:
+            from demo import reset_demo_data
+            ok = reset_demo_data()
+            app.logger.info(f"Demo reset: {'OK' if ok else 'FAILED'}")
+        except Exception as e:
+            app.logger.error(f"Demo reset greška: {e}")

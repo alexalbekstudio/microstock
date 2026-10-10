@@ -26,6 +26,17 @@
 </head>
 <body>
 
+{% if session.get('demo_mode') %}
+<div style="background:#fbbf24;color:#0f172a;padding:.65rem 1rem;text-align:center;
+            font-weight:700;font-size:.9rem;position:sticky;top:0;z-index:9999">
+  🎯 DEMO režim — svi podaci se resetuju svakih sat vremena ·
+  <a href="{{ url_for('demo_exit') }}"
+     style="color:#0f172a;text-decoration:underline;margin-left:.5rem">
+    Izađi iz demo
+  </a>
+</div>
+{% endif %}
+
 <div class="layout">
 
   {# ============ SIDEBAR ============ #}

@@ -693,4 +693,9 @@ TRANSLATIONS = {
         # WhatsApp
     "customer_phone": "Customer phone",
     "wa_message_default": "Hi, regarding your order",
+
+    "demo_button": "View demo (no registration)",
+    "demo_banner": "DEMO mode — all data resets every hour",
+    "demo_exit": "Exit demo",
+    "demo_welcome": "Welcome to DEMO! All data resets every hour.",
 }

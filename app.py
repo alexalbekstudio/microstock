@@ -134,6 +134,64 @@ def set_currency(cur):
     flash("Valuta promenjena.", "ok")
     return redirect(request.referrer or url_for("index"))
 
+# ==================== DEMO MOD ====================
+
+@app.route("/demo")
+def demo_login():
+    """Auto-login u demo režim."""
+    from flask import session
+    from flask_login import login_user
+    from demo import seed_demo_data
+
+    # Resetuj demo bazu
+    try:
+        seed_demo_data()
+    except Exception as e:
+        flash(f"Demo greška: {e}", "err")
+        return redirect(url_for("auth.login"))
+
+    # Postavi demo mode
+    session["demo_mode"] = True
+    session["currency"] = "RSD"
+    session["lang"] = "sr"
+
+    # Uloguj demo korisnika
+    from db_adapter import connect_demo
+    from auth import User
+
+    conn = connect_demo()
+    try:
+        user = conn.execute(
+            "SELECT * FROM users WHERE email='demo@microstock.local' LIMIT 1"
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not user:
+        flash("Demo korisnik nije kreiran.", "err")
+        return redirect(url_for("auth.login"))
+
+    user_obj = User(
+        user["id"], user["email"], user["name"], user["role"],
+        language="sr", currency="RSD"
+    )
+    login_user(user_obj, remember=False)
+
+    flash("Dobrodošao u DEMO! Svi podaci se resetuju svakih sat vremena.", "ok")
+    return redirect(url_for("index"))
+
+
+@app.route("/demo/exit")
+def demo_exit():
+    """Izlaz iz demo moda."""
+    from flask import session
+    from flask_login import logout_user
+
+    session.pop("demo_mode", None)
+    logout_user()
+    flash("Izašao si iz demo moda.", "ok")
+    return redirect(url_for("auth.login"))
+
 # ==================== ZABORAVLJENA ŠIFRA ====================
 
 @app.route("/forgot-password", methods=["GET", "POST"])

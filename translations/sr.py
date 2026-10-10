@@ -694,4 +694,9 @@ TRANSLATIONS = {
         # WhatsApp
     "customer_phone": "Telefon kupca",
     "wa_message_default": "Zdravo, u vezi tvoje narudžbine",
+
+    "demo_button": "Pogledaj demo (bez registracije)",
+    "demo_banner": "DEMO režim — svi podaci se resetuju svakih sat vremena",
+    "demo_exit": "Izađi iz demo",
+    "demo_welcome": "Dobrodošao u DEMO! Svi podaci se resetuju svakih sat vremena.",
 }

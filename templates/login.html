@@ -44,6 +44,16 @@
       <button type="submit" class="login-submit">{{ t("login_button") }}</button>
     </form>
 
+  <div style="text-align:center; margin-top:1rem">
+    <a href="{{ url_for('demo_login') }}"
+      style="display:block; width:100%; text-align:center; padding:.75rem;
+              border:1px dashed #6366f1; color:#6366f1; border-radius:8px;
+              text-decoration:none; font-weight:600; font-size:.95rem;
+              transition: background .15s">
+      🎯 Pogledaj demo (bez registracije)
+    </a>
+  </div>
+
     <p class="login-hint" style="margin-top:.75rem; padding-top:.75rem">
       <a href="{{ url_for('forgot_password') }}">{{ t("forgot_password_link") }}</a>
     </p>
