@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://microstock-landing.netlify.app/sitemap.xml
