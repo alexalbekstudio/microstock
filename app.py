@@ -39,6 +39,11 @@ login_manager.init_app(app)
 init_mail(app)
 init_scheduler(app)
 
+@app.route("/favicon.ico")
+def favicon():
+    from flask import send_from_directory
+    return send_from_directory("static/img", "logo-icon.png", mimetype="image/png")
+
 # ==================== JINJA GLOBALNE ====================
 
 @app.context_processor
@@ -297,7 +302,6 @@ def add_product():
     except Exception as e:
         flash(f"Greška: {e}", "err")
     return redirect(url_for("products"))
-
 
 @app.route("/products/<int:pid>/edit", methods=["GET", "POST"])
 @login_required
@@ -764,6 +768,7 @@ def scan_view():
 @login_required
 @role_required(*ALL_ROLES)
 def api_product_by_url():
+    from db_adapter import connect
     """
     Prima URL (ili SKU) iz QR koda, vraća proizvod.
     Primer: /api/product-by-url?url=https://microstock.onrender.com/products/123
@@ -814,6 +819,13 @@ def api_product_by_url():
         "price_display": display_money(p["price"] or 0),
     })
 
+@app.route("/products/<int:pid>")
+@login_required
+@role_required(*ALL_ROLES)
+def product_detail_redirect(pid):
+    """Prikaz pojedinačnog proizvoda — preusmeri na edit."""
+    return redirect(url_for("edit_product", pid=pid))
+
 # ==================== QR GENERATOR ====================
 
 @app.route("/products/<int:pid>/qr.png")
@@ -830,7 +842,7 @@ def product_qr_png(pid):
 
     # URL do stranice proizvoda (javni)
     base_url = os.getenv("PUBLIC_URL", "https://microstock.onrender.com")
-    product_url = f"{base_url}/products/{pid}"
+    product_url = f"{base_url}/products/{pid}/edit"
 
     qr = qrcode.QRCode(
         version=1,

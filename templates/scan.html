@@ -2,7 +2,15 @@
 {% block title %}{{ t("scan_title") }} — MicroStock{% endblock %}
 {% block topbar_title %}📷 {{ t("scan_title") }}{% endblock %}
 {% block content %}
-
+<script>
+  // DEBUG: obriši SW
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+      for (let r of regs) r.unregister();
+      console.log('[debug] SW unregistered');
+    });
+  }
+</script>
 <div class="page-header">
   <h1>📷 {{ t("scan_title") }}</h1>
   <a href="{{ url_for('products') }}" class="btn btn--secondary">← {{ t("back") }}</a>
@@ -109,55 +117,67 @@
   }
 
   async function lookupProduct(text) {
-    try {
-      const r = await fetch('/api/product-by-url?url=' + encodeURIComponent(text));
-      const data = await r.json();
+  const dbg = document.getElementById('scan-result');
+  dbg.style.display = 'block';
+  dbg.innerHTML = `<p>⏳ Tražim: <b>${text}</b></p>`;
 
-      if (data.error) {
-        result.style.display = 'block';
-        result.innerHTML = `
-          <h3 style="margin-top:0">⚠️ ${data.error}</h3>
-          <p class="muted small">Kod: <code>${text}</code></p>
-          <div class="btn-row">
-            <button class="btn btn--secondary" onclick="resumeScan()">{{ t("scan_resume") }}</button>
-          </div>
-        `;
-        return;
-      }
+  try {
+    const url = '/api/product-by-url?url=' + encodeURIComponent(text);
+    dbg.innerHTML += `<p class="small">URL: <code>${url}</code></p>`;
 
-      currentProduct = data;
-      renderProduct(data);
-    } catch (err) {
-      result.style.display = 'block';
-      result.innerHTML = `<p class="text-danger">{{ t("scan_network_error") }}</p>`;
+    const r = await fetch(url);
+    dbg.innerHTML += `<p>Status: <b>${r.status}</b></p>`;
+
+    const raw = await r.text();
+    dbg.innerHTML += `<p class="small">Raw: <code>${raw.slice(0, 150)}</code></p>`;
+
+    const data = JSON.parse(raw);
+    if (data.error) {
+      dbg.innerHTML += `<h3>⚠️ ${data.error}</h3>`;
+      return;
     }
+    currentProduct = data;
+    renderProduct(data);
+  } catch (err) {
+    dbg.innerHTML += `<p class="text-danger">❌ ${err.name}: ${err.message}</p>`;
   }
+}
 
-  function renderProduct(p) {
-    const stockBadge = p.stock <= p.low_stock_at
-      ? `<span class="badge badge--danger">${p.stock} (${t('low_badge') || 'nisko'})</span>`
-      : `<span class="badge badge--success">${p.stock}</span>`;
+  // Prevodi (Jinja renderuje ove stringove jednom, JS ih koristi)
+const TXT = {
+  low_badge: "{{ t('low_badge') }}",
+  price: "{{ t('price') }}",
+  stock: "{{ t('stock') }}",
+  add_to_order: "{{ t('scan_add_to_order') }}",
+  open: "{{ t('open') }}",
+  resume: "{{ t('scan_resume') }}",
+};
 
-    result.style.display = 'block';
-    result.innerHTML = `
-      <h3 style="margin-top:0">📦 ${p.name}</h3>
-      <div class="muted small" style="margin-bottom:.5rem">SKU: <code>${p.sku}</code></div>
-      <div style="display:flex; justify-content:space-between; padding:.5rem 0;">
-        <span class="muted">{{ t("price") }}:</span>
-        <b>${p.price_display}</b>
-      </div>
-      <div style="display:flex; justify-content:space-between; padding:.5rem 0;">
-        <span class="muted">{{ t("stock") }}:</span>
-        <b>${stockBadge}</b>
-      </div>
-      <div class="btn-row" style="margin-top:1rem">
-        <button class="btn btn--primary" onclick="openOrderModal()">➕ {{ t("scan_add_to_order") }}</button>
-        <a href="/products/${p.id}" class="btn btn--secondary">👁 {{ t("open") }}</a>
-        <a href="/products/${p.id}/qr.png" class="btn btn--secondary" download>📱 QR</a>
-        <button class="btn btn--ghost" onclick="resumeScan()">{{ t("scan_resume") }}</button>
-      </div>
-    `;
-  }
+function renderProduct(p) {
+  const stockBadge = p.stock <= p.low_stock_at
+    ? `<span class="badge badge--danger">${p.stock} (${TXT.low_badge || 'nisko'})</span>`
+    : `<span class="badge badge--success">${p.stock}</span>`;
+
+  result.style.display = 'block';
+  result.innerHTML = `
+    <h3 style="margin-top:0">📦 ${p.name}</h3>
+    <div class="muted small" style="margin-bottom:.5rem">SKU: <code>${p.sku}</code></div>
+    <div style="display:flex; justify-content:space-between; padding:.5rem 0;">
+      <span class="muted">${TXT.price}:</span>
+      <b>${p.price_display}</b>
+    </div>
+    <div style="display:flex; justify-content:space-between; padding:.5rem 0;">
+      <span class="muted">${TXT.stock}:</span>
+      <b>${stockBadge}</b>
+    </div>
+    <div class="btn-row" style="margin-top:1rem">
+      <button class="btn btn--primary" onclick="openOrderModal()">➕ ${TXT.add_to_order}</button>
+      <a href="/products/${p.id}" class="btn btn--secondary">👁 ${TXT.open}</a>
+      <a href="/products/${p.id}/qr.png" class="btn btn--secondary" download>📱 QR</a>
+      <button class="btn btn--ghost" onclick="resumeScan()">${TXT.resume}</button>
+    </div>
+  `;
+}
 
   function resumeScan() {
     result.style.display = 'none';

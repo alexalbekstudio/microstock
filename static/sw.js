@@ -1,6 +1,6 @@
 // MicroStock Service Worker
 // Verzija — menjaj kad menjaš keš
-const CACHE_VERSION = 'microstock-v2';   // bilo v1, sad v2
+const CACHE_VERSION = 'microstock-v4';   // bilo v1, sad v2
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -46,9 +46,22 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // API pozivi — uvek direktno sa mreže (bez SW)
+  if (url.pathname.startsWith('/api/')) {
+    return;   // pusti browser da obavi normalno
+  }
+
   // Preskoči non-GET i eksterne domene
   if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
+
+  // HTML navigacije — UVEK network-first, bez keša
+    if (request.mode === 'navigate') {
+      event.respondWith(
+        fetch(request).catch(() => caches.match('/offline'))
+      );
+      return;
+    }
 
   // API pozivi — uvek sa mreže, ne keširaj
   if (url.pathname.startsWith('/api/')) {
