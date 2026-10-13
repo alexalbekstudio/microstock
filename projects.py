@@ -27,9 +27,12 @@ def add_member(name, role, hourly_rate):
 
 # ==================== PROJEKTI ====================
 
-def list_projects(status=None):
+def list_projects(user_id=None, status=None):
     sql = "SELECT * FROM v_project_summary WHERE 1=1"
     params = []
+    if user_id is not None:
+        sql += " AND user_id = %s"
+        params.append(user_id)
     if status:
         sql += " AND status = %s"
         params.append(status)
@@ -39,38 +42,84 @@ def list_projects(status=None):
     conn.close()
     return [_enrich(r) for r in rows]
 
-def get_project(pid):
+def get_project(pid, user_id=None):
     conn = connect()
-    row = conn.execute(
-        "SELECT * FROM v_project_summary WHERE project_id=%s", (pid,)
-    ).fetchone()
+    if user_id is not None:
+        row = conn.execute(
+            "SELECT * FROM v_project_summary WHERE project_id=%s AND user_id=%s",
+            (pid, user_id)
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT * FROM v_project_summary WHERE project_id=%s", (pid,)
+        ).fetchone()
     conn.close()
     if not row:
         return None
     return _enrich(row)
 
-def add_project(code, name, client, contract_value, start_date, deadline, notes=""):
+def add_project(user_id, code, name, client, contract_value, start_date, deadline, notes=""):
     conn = connect()
     conn.execute("""
-        INSERT INTO projects (code, name, client, contract_value, start_date, deadline, notes)
-        VALUES (%s,%s,%s,%s,%s,%s,%s)
-    """, (code, name, client, contract_value, start_date, deadline, notes))
+        INSERT INTO projects (user_id, code, name, client, contract_value, start_date, deadline, notes)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+    """, (user_id, code, name, client, contract_value, start_date, deadline, notes))
     conn.commit(); conn.close()
 
-def update_project(pid, code, name, client, contract_value, start_date, deadline, status, notes):
+def update_project(pid, code, name, client, contract_value, start_date, deadline, status, notes, user_id=None):
     conn = connect()
-    conn.execute("""
-        UPDATE projects
-           SET code=%s, name=%s, client=%s, contract_value=%s,
-               start_date=%s, deadline=%s, status=%s, notes=%s
-         WHERE id=%s
-    """, (code, name, client, contract_value, start_date, deadline, status, notes, pid))
+    if user_id is not None:
+        conn.execute("""
+            UPDATE projects
+               SET code=%s, name=%s, client=%s, contract_value=%s,
+                   start_date=%s, deadline=%s, status=%s, notes=%s
+             WHERE id=%s AND user_id=%s
+        """, (code, name, client, contract_value, start_date, deadline, status, notes, pid, user_id))
+    else:
+        conn.execute("""
+            UPDATE projects
+               SET code=%s, name=%s, client=%s, contract_value=%s,
+                   start_date=%s, deadline=%s, status=%s, notes=%s
+             WHERE id=%s
+        """, (code, name, client, contract_value, start_date, deadline, status, notes, pid))
     conn.commit(); conn.close()
 
-def delete_project(pid):
+def delete_project(pid, user_id=None):
     conn = connect()
-    conn.execute("DELETE FROM projects WHERE id=%s", (pid,))
+    if user_id is not None:
+        conn.execute("DELETE FROM projects WHERE id=%s AND user_id=%s", (pid, user_id))
+    else:
+        conn.execute("DELETE FROM projects WHERE id=%s", (pid,))
     conn.commit(); conn.close()
+
+def projects_overview(user_id=None):
+    """Broj projekata, koliko ih je u opasnosti (>80%), ukupan profit."""
+    conn = connect()
+    if user_id is not None:
+        rows = conn.execute(
+            "SELECT * FROM v_project_summary WHERE status='active' AND user_id = %s",
+            (user_id,)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM v_project_summary WHERE status='active'"
+        ).fetchall()
+    conn.close()
+
+    active = [_enrich(r) for r in rows]
+    warn_count = sum(1 for p in active if p["alert_level"] in ("warn", "danger"))
+    total_revenue = sum(p["contract_value"] for p in active)
+    total_cost    = sum(p["total_cost"] for p in active)
+    total_profit  = sum(p["profit"] for p in active)
+
+    return {
+        "active":        len(active),
+        "warnings":      warn_count,
+        "total_revenue": round(total_revenue, 2),
+        "total_cost":    round(total_cost, 2),
+        "total_profit":  round(total_profit, 2),
+        "at_risk": [p for p in active if p["alert_level"] != "ok"],
+    }
 
 
 # ==================== RADNI SATI ====================
@@ -166,27 +215,6 @@ def _enrich(row):
     return p
 
 # ==================== PREGLED ZA DASHBOARD ====================
-
-def projects_overview():
-    """Broj projekata, koliko ih je u opasnosti (>80%), ukupan profit."""
-    conn = connect()
-    rows = conn.execute("SELECT * FROM v_project_summary WHERE status='active'").fetchall()
-    conn.close()
-
-    active = [_enrich(r) for r in rows]
-    warn_count = sum(1 for p in active if p["alert_level"] in ("warn", "danger"))
-    total_revenue = sum(p["contract_value"] for p in active)
-    total_cost    = sum(p["total_cost"] for p in active)
-    total_profit  = sum(p["profit"] for p in active)
-
-    return {
-        "active":        len(active),
-        "warnings":      warn_count,
-        "total_revenue": round(total_revenue, 2),
-        "total_cost":    round(total_cost, 2),
-        "total_profit":  round(total_profit, 2),
-        "at_risk": [p for p in active if p["alert_level"] != "ok"],
-    }
 
 def _check_budget_alert(project_id):
     proj = get_project(project_id)

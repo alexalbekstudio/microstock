@@ -1,13 +1,13 @@
 # purchases.py
 """
-Računi nabavke — CRUD operacije + veza sa dobavljačima, proizvodima, kapitalom.
+Računi nabavke — CRUD operacije (multi-tenant).
 """
 from db_adapter import connect
 
 
 # ==================== LISTE ====================
 
-def list_invoices(search=None, status=None, supplier_id=None):
+def list_invoices(user_id=None, search=None, status=None, supplier_id=None):
     """Vraća listu računa sa imenom dobavljača."""
     sql = """
         SELECT pi.*, s.name AS supplier_name
@@ -16,6 +16,10 @@ def list_invoices(search=None, status=None, supplier_id=None):
         WHERE 1=1
     """
     params = []
+
+    if user_id is not None:
+        sql += " AND pi.user_id = %s"
+        params.append(user_id)
 
     if search:
         sql += " AND (pi.invoice_number ILIKE %s OR s.name ILIKE %s OR pi.notes ILIKE %s)"
@@ -40,16 +44,24 @@ def list_invoices(search=None, status=None, supplier_id=None):
     return rows
 
 
-def get_invoice(iid):
+def get_invoice(iid, user_id=None):
     """Vraća jedan račun sa dobavljačem."""
     conn = connect()
     try:
-        row = conn.execute("""
-            SELECT pi.*, s.name AS supplier_name
-            FROM purchase_invoices pi
-            LEFT JOIN suppliers s ON s.id = pi.supplier_id
-            WHERE pi.id = %s
-        """, (iid,)).fetchone()
+        if user_id is not None:
+            row = conn.execute("""
+                SELECT pi.*, s.name AS supplier_name
+                FROM purchase_invoices pi
+                LEFT JOIN suppliers s ON s.id = pi.supplier_id
+                WHERE pi.id = %s AND pi.user_id = %s
+            """, (iid, user_id)).fetchone()
+        else:
+            row = conn.execute("""
+                SELECT pi.*, s.name AS supplier_name
+                FROM purchase_invoices pi
+                LEFT JOIN suppliers s ON s.id = pi.supplier_id
+                WHERE pi.id = %s
+            """, (iid,)).fetchone()
     finally:
         conn.close()
     return row
@@ -73,7 +85,7 @@ def list_items(iid):
 
 # ==================== CRUD ====================
 
-def add_invoice(supplier_id, invoice_number, invoice_date, due_date,
+def add_invoice(user_id, supplier_id, invoice_number, invoice_date, due_date,
                 amount, currency="RSD", status="pending",
                 file_data=None, file_name=None, file_mime=None, notes=""):
     """Dodaje novi račun. Vraća ID."""
@@ -81,12 +93,12 @@ def add_invoice(supplier_id, invoice_number, invoice_date, due_date,
     try:
         cur = conn.execute("""
             INSERT INTO purchase_invoices
-                (supplier_id, invoice_number, invoice_date, due_date,
+                (user_id, supplier_id, invoice_number, invoice_date, due_date,
                  amount, currency, status,
                  file_data, file_name, file_mime, notes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (supplier_id, invoice_number, invoice_date, due_date,
+        """, (user_id, supplier_id, invoice_number, invoice_date, due_date,
               amount, currency, status,
               file_data, file_name, file_mime, notes))
         row = cur.fetchone()
@@ -97,49 +109,77 @@ def add_invoice(supplier_id, invoice_number, invoice_date, due_date,
 
 
 def update_invoice(iid, supplier_id, invoice_number, invoice_date, due_date,
-                   amount, currency, status, notes=""):
+                   amount, currency, status, notes="", user_id=None):
     """Menja račun (osim fajla)."""
     conn = connect()
     try:
-        conn.execute("""
-            UPDATE purchase_invoices SET
-                supplier_id=%s, invoice_number=%s, invoice_date=%s, due_date=%s,
-                amount=%s, currency=%s, status=%s, notes=%s,
-                updated_at=CURRENT_TIMESTAMP
-            WHERE id=%s
-        """, (supplier_id, invoice_number, invoice_date, due_date,
-              amount, currency, status, notes, iid))
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def set_status(iid, status, paid_date=None):
-    """Menja status računa. Ako je 'paid', postavlja paid_date."""
-    conn = connect()
-    try:
-        if status == "paid" and paid_date:
+        if user_id is not None:
             conn.execute("""
                 UPDATE purchase_invoices SET
-                    status=%s, paid_date=%s, updated_at=CURRENT_TIMESTAMP
-                WHERE id=%s
-            """, (status, paid_date, iid))
+                    supplier_id=%s, invoice_number=%s, invoice_date=%s, due_date=%s,
+                    amount=%s, currency=%s, status=%s, notes=%s,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE id=%s AND user_id=%s
+            """, (supplier_id, invoice_number, invoice_date, due_date,
+                  amount, currency, status, notes, iid, user_id))
         else:
             conn.execute("""
                 UPDATE purchase_invoices SET
-                    status=%s, updated_at=CURRENT_TIMESTAMP
+                    supplier_id=%s, invoice_number=%s, invoice_date=%s, due_date=%s,
+                    amount=%s, currency=%s, status=%s, notes=%s,
+                    updated_at=CURRENT_TIMESTAMP
                 WHERE id=%s
-            """, (status, iid))
+            """, (supplier_id, invoice_number, invoice_date, due_date,
+                  amount, currency, status, notes, iid))
         conn.commit()
     finally:
         conn.close()
 
 
-def delete_invoice(iid):
+def set_status(iid, status, paid_date=None, user_id=None):
+    """Menja status računa. Ako je 'paid', postavlja paid_date."""
+    conn = connect()
+    try:
+        if user_id is not None:
+            if status == "paid" and paid_date:
+                conn.execute("""
+                    UPDATE purchase_invoices SET
+                        status=%s, paid_date=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=%s AND user_id=%s
+                """, (status, paid_date, iid, user_id))
+            else:
+                conn.execute("""
+                    UPDATE purchase_invoices SET
+                        status=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=%s AND user_id=%s
+                """, (status, iid, user_id))
+        else:
+            if status == "paid" and paid_date:
+                conn.execute("""
+                    UPDATE purchase_invoices SET
+                        status=%s, paid_date=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=%s
+                """, (status, paid_date, iid))
+            else:
+                conn.execute("""
+                    UPDATE purchase_invoices SET
+                        status=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=%s
+                """, (status, iid))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_invoice(iid, user_id=None):
     """Briše račun (i stavke kroz CASCADE)."""
     conn = connect()
     try:
-        conn.execute("DELETE FROM purchase_invoices WHERE id=%s", (iid,))
+        if user_id is not None:
+            conn.execute("DELETE FROM purchase_invoices WHERE id=%s AND user_id=%s",
+                         (iid, user_id))
+        else:
+            conn.execute("DELETE FROM purchase_invoices WHERE id=%s", (iid,))
         conn.commit()
     finally:
         conn.close()
@@ -199,28 +239,42 @@ def recalc_amount(iid):
 
 # ==================== HELPERS ====================
 
-def get_file(iid):
+def get_file(iid, user_id=None):
     """Vraća (file_data, file_name, file_mime) ili None."""
     conn = connect()
     try:
-        row = conn.execute("""
-            SELECT file_data, file_name, file_mime
-            FROM purchase_invoices WHERE id=%s
-        """, (iid,)).fetchone()
+        if user_id is not None:
+            row = conn.execute("""
+                SELECT file_data, file_name, file_mime
+                FROM purchase_invoices WHERE id=%s AND user_id=%s
+            """, (iid, user_id)).fetchone()
+        else:
+            row = conn.execute("""
+                SELECT file_data, file_name, file_mime
+                FROM purchase_invoices WHERE id=%s
+            """, (iid,)).fetchone()
     finally:
         conn.close()
     return row
 
 
-def statuses_count():
+def statuses_count(user_id=None):
     """Brojevi po statusu — za KPI."""
     conn = connect()
     try:
-        rows = conn.execute("""
-            SELECT status, COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total
-            FROM purchase_invoices
-            GROUP BY status
-        """).fetchall()
+        if user_id is not None:
+            rows = conn.execute("""
+                SELECT status, COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total
+                FROM purchase_invoices
+                WHERE user_id = %s
+                GROUP BY status
+            """, (user_id,)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT status, COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total
+                FROM purchase_invoices
+                GROUP BY status
+            """).fetchall()
     finally:
         conn.close()
 
@@ -236,37 +290,34 @@ def statuses_count():
             result[s]["total"] = float(r["total"])
     return result
 
-def recalc_product_costs(product_ids=None):
+
+def recalc_product_costs(product_ids=None, user_id=None):
     """
     Preračuna prosečnu nabavnu cenu za proizvode iz plaćenih računa.
-    Ako je product_ids=None — radi za sve proizvode.
     """
     conn = connect()
     try:
+        where = "WHERE pi.status IN ('paid', 'partial') AND pii.product_id IS NOT NULL"
+        params = []
+
+        if user_id is not None:
+            where += " AND pi.user_id = %s"
+            params.append(user_id)
+
         if product_ids:
             placeholders = ",".join(["%s"] * len(product_ids))
-            rows = conn.execute(f"""
-                SELECT
-                    pii.product_id,
-                    SUM(pii.qty * pii.unit_cost) / NULLIF(SUM(pii.qty), 0) AS avg_cost
-                FROM purchase_items pii
-                JOIN purchase_invoices pi ON pi.id = pii.purchase_invoice_id
-                WHERE pii.product_id IN ({placeholders})
-                  AND pi.status IN ('paid', 'partial')
-                  AND pii.product_id IS NOT NULL
-                GROUP BY pii.product_id
-            """, tuple(product_ids)).fetchall()
-        else:
-            rows = conn.execute("""
-                SELECT
-                    pii.product_id,
-                    SUM(pii.qty * pii.unit_cost) / NULLIF(SUM(pii.qty), 0) AS avg_cost
-                FROM purchase_items pii
-                JOIN purchase_invoices pi ON pi.id = pii.purchase_invoice_id
-                WHERE pi.status IN ('paid', 'partial')
-                  AND pii.product_id IS NOT NULL
-                GROUP BY pii.product_id
-            """).fetchall()
+            where += f" AND pii.product_id IN ({placeholders})"
+            params.extend(product_ids)
+
+        rows = conn.execute(f"""
+            SELECT
+                pii.product_id,
+                SUM(pii.qty * pii.unit_cost) / NULLIF(SUM(pii.qty), 0) AS avg_cost
+            FROM purchase_items pii
+            JOIN purchase_invoices pi ON pi.id = pii.purchase_invoice_id
+            {where}
+            GROUP BY pii.product_id
+        """, tuple(params)).fetchall()
 
         updated = 0
         for r in rows:
@@ -283,7 +334,8 @@ def recalc_product_costs(product_ids=None):
     finally:
         conn.close()
 
-def report_by_supplier(date_from=None, date_to=None):
+
+def report_by_supplier(user_id=None, date_from=None, date_to=None):
     """Ukupno plaćeno po dobavljaču."""
     sql = """
         SELECT
@@ -298,6 +350,9 @@ def report_by_supplier(date_from=None, date_to=None):
         WHERE 1=1
     """
     params = []
+    if user_id is not None:
+        sql += " AND s.user_id = %s"
+        params.append(user_id)
     if date_from:
         sql += " AND (pi.invoice_date IS NULL OR pi.invoice_date >= %s)"
         params.append(date_from)
@@ -315,38 +370,63 @@ def report_by_supplier(date_from=None, date_to=None):
     return rows
 
 
-def report_by_month(months=12):
+def report_by_month(months=12, user_id=None):
     """Ukupno plaćeno po mesecu (poslednjih N meseci)."""
     conn = connect()
     try:
-        rows = conn.execute("""
-            SELECT
-                TO_CHAR(invoice_date, 'YYYY-MM') AS month,
-                COUNT(*) AS invoice_count,
-                COALESCE(SUM(amount), 0) AS total_amount,
-                COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) AS paid_amount
-            FROM purchase_invoices
-            WHERE invoice_date IS NOT NULL
-              AND invoice_date >= CURRENT_DATE - INTERVAL '%s months'
-            GROUP BY TO_CHAR(invoice_date, 'YYYY-MM')
-            ORDER BY month DESC
-        """, (months,)).fetchall()
+        if user_id is not None:
+            rows = conn.execute("""
+                SELECT
+                    TO_CHAR(invoice_date, 'YYYY-MM') AS month,
+                    COUNT(*) AS invoice_count,
+                    COALESCE(SUM(amount), 0) AS total_amount,
+                    COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) AS paid_amount
+                FROM purchase_invoices
+                WHERE invoice_date IS NOT NULL
+                  AND invoice_date >= CURRENT_DATE - (%s || ' months')::interval
+                  AND user_id = %s
+                GROUP BY TO_CHAR(invoice_date, 'YYYY-MM')
+                ORDER BY month DESC
+            """, (str(months), user_id)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT
+                    TO_CHAR(invoice_date, 'YYYY-MM') AS month,
+                    COUNT(*) AS invoice_count,
+                    COALESCE(SUM(amount), 0) AS total_amount,
+                    COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) AS paid_amount
+                FROM purchase_invoices
+                WHERE invoice_date IS NOT NULL
+                  AND invoice_date >= CURRENT_DATE - (%s || ' months')::interval
+                GROUP BY TO_CHAR(invoice_date, 'YYYY-MM')
+                ORDER BY month DESC
+            """, (str(months),)).fetchall()
     finally:
         conn.close()
     return rows
 
 
-def unpaid_total():
+def unpaid_total(user_id=None):
     """Ukupan dug (neplaćeni + u kašnjenju + delimično)."""
     conn = connect()
     try:
-        row = conn.execute("""
-            SELECT
-                COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending,
-                COALESCE(SUM(CASE WHEN status = 'overdue' THEN amount ELSE 0 END), 0) AS overdue,
-                COALESCE(SUM(CASE WHEN status = 'partial' THEN amount ELSE 0 END), 0) AS partial
-            FROM purchase_invoices
-        """).fetchone()
+        if user_id is not None:
+            row = conn.execute("""
+                SELECT
+                    COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending,
+                    COALESCE(SUM(CASE WHEN status = 'overdue' THEN amount ELSE 0 END), 0) AS overdue,
+                    COALESCE(SUM(CASE WHEN status = 'partial' THEN amount ELSE 0 END), 0) AS partial
+                FROM purchase_invoices
+                WHERE user_id = %s
+            """, (user_id,)).fetchone()
+        else:
+            row = conn.execute("""
+                SELECT
+                    COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending,
+                    COALESCE(SUM(CASE WHEN status = 'overdue' THEN amount ELSE 0 END), 0) AS overdue,
+                    COALESCE(SUM(CASE WHEN status = 'partial' THEN amount ELSE 0 END), 0) AS partial
+                FROM purchase_invoices
+            """).fetchone()
     finally:
         conn.close()
 

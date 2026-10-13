@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}{{ "Izmena pretplate" if sub else "Nova pretplata" }} — MicroStock{% endblock %}
+{% block topbar_title %}💳 {{ "Izmena pretplate" if sub else "Nova pretplata" }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>{{ "✏️ Izmena pretplate" if sub else "➕ Nova pretplata" }}</h1>
+  <div class="page-header__actions">
+    <a href="{{ url_for('admin_subscriptions') }}" class="btn btn--secondary">← Nazad</a>
+  </div>
+</div>
+
+<form method="post" class="form">
+
+  {# Korisnik — samo pri kreiranju #}
+  {% if sub %}
+    <div class="form-row">
+      <label>Korisnik</label>
+      <input type="text" value="{{ sub.user_name or sub.user_email }}" disabled>
+    </div>
+  {% else %}
+    <div class="form-row">
+      <label>Korisnik *</label>
+      <select name="user_id" required>
+        <option value="">— izaberi korisnika —</option>
+        {% for u in users %}
+          <option value="{{ u.id }}">{{ u.name or u.email }} ({{ u.email }})</option>
+        {% endfor %}
+      </select>
+    </div>
+  {% endif %}
+
+  <div class="form-row">
+    <label>Paket *</label>
+    <select name="plan_name" required>
+      {% for code, plan in plans.items() %}
+        <option value="{{ code }}"
+          {% if sub and sub.plan_name == code %}selected{% endif %}>
+          {{ plan.label }}
+          {% if plan.price_eur %}— €{{ plan.price_eur }}/mes{% else %}— na upit{% endif %}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="form-row">
+    <label>Status</label>
+    <select name="status">
+      <option value="active"   {% if sub and sub.status=='active' %}selected{% endif %}>Aktivna</option>
+      <option value="trial"    {% if sub and sub.status=='trial' %}selected{% endif %}>Probni period</option>
+      <option value="expired"  {% if sub and sub.status=='expired' %}selected{% endif %}>Istekla</option>
+      <option value="canceled" {% if sub and sub.status=='canceled' %}selected{% endif %}>Otkazana</option>
+    </select>
+  </div>
+
+  <div class="form-row">
+    <label>Datum početka</label>
+    <input type="date" name="start_date"
+           value="{{ sub.start_date if sub and sub.start_date else '' }}">
+  </div>
+
+  <div class="form-row">
+    <label>Datum isteka</label>
+    <input type="date" name="end_date"
+           value="{{ sub.end_date if sub and sub.end_date else '' }}">
+  </div>
+
+  <div class="form-row">
+    <label>Datum obnove (renewal)</label>
+    <input type="date" name="renewal_date"
+           value="{{ sub.renewal_date if sub and sub.renewal_date else '' }}">
+  </div>
+
+  <div class="form-row">
+    <label class="checkbox-label">
+      <input type="checkbox" name="is_self_hosted"
+             {% if sub and sub.is_self_hosted %}checked{% endif %}>
+      Self-hosted (Enterprise — Docker instalacija)
+    </label>
+  </div>
+
+  <div class="form-row">
+    <label>License key (za Enterprise)</label>
+    <input type="text" name="license_key"
+           value="{{ sub.license_key if sub and sub.license_key else '' }}"
+           placeholder="npr. MS-ENT-XXXX-XXXX">
+  </div>
+
+  <div class="form-row">
+    <label>SLA nivo (za Enterprise)</label>
+    <select name="sla_level">
+      <option value="">—</option>
+      <option value="12h" {% if sub and sub.sla_level=='12h' %}selected{% endif %}>12h</option>
+      <option value="24h" {% if sub and sub.sla_level=='24h' %}selected{% endif %}>24h</option>
+      <option value="48h" {% if sub and sub.sla_level=='48h' %}selected{% endif %}>48h</option>
+    </select>
+  </div>
+
+  <div class="form-row">
+    <label>Napomene</label>
+    <textarea name="notes" rows="3">{{ sub.notes if sub and sub.notes else '' }}</textarea>
+  </div>
+
+  <div class="btn-row" style="margin-top:1rem">
+    <button type="submit" class="btn btn--primary">💾 Sačuvaj</button>
+    <a href="{{ url_for('admin_subscriptions') }}" class="btn btn--secondary">Otkaži</a>
+
+    {% if sub %}
+      <form method="post"
+            action="{{ url_for('admin_subscription_cancel', sub_id=sub.id) }}"
+            style="display:inline; margin-left:auto"
+            onsubmit="return confirm('Otkazati ovu pretplatu?')">
+        <button type="submit" class="btn btn--danger">🚫 Otkaži pretplatu</button>
+      </form>
+    {% endif %}
+  </div>
+
+</form>
+
+{% endblock %}

@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — MicroStock{% endblock %}
+{% block topbar_title %}📊 Admin Dashboard{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>📊 Admin Dashboard</h1>
+  <form method="get" class="filter-form" style="margin:0">
+    <label>Period:</label>
+    <select name="days" onchange="this.form.submit()">
+      <option value="7"   {% if days==7 %}selected{% endif %}>7 dana</option>
+      <option value="30"  {% if days==30 %}selected{% endif %}>30 dana</option>
+      <option value="90"  {% if days==90 %}selected{% endif %}>90 dana</option>
+      <option value="365" {% if days==365 %}selected{% endif %}>365 dana</option>
+    </select>
+  </form>
+</div>
+
+{# ============ KPI ============ #}
+<div class="kpi-strip">
+  <div class="kpi kpi--good">
+    <div class="kpi__label">👥 Aktivni (7d)</div>
+    <div class="kpi__value">{{ kpi.active_7 }}</div>
+    <div class="kpi__meta">unikatnih korisnika</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">🔑 Logini danas</div>
+    <div class="kpi__value">{{ kpi.logins_today }}</div>
+    <div class="kpi__meta">od ponoći</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">⚡ Akcije ({{ days }}d)</div>
+    <div class="kpi__value">{{ kpi.actions_period }}</div>
+    <div class="kpi__meta">iz usage_logs</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi__label">👤 Korisnika</div>
+    <div class="kpi__value">{{ kpi.total_users }}</div>
+    <div class="kpi__meta">aktivnih naloga</div>
+  </div>
+  <div class="kpi {% if kpi.active_subs > 0 %}kpi--good{% endif %}">
+    <div class="kpi__label">💳 Pretplate</div>
+    <div class="kpi__value">{{ kpi.active_subs }}</div>
+    <div class="kpi__meta">aktivne</div>
+  </div>
+</div>
+
+{# ============ GRAFIKONI ============ #}
+<div class="split">
+  <div>
+    <h2>📈 Logini po danu</h2>
+    <div class="chart-box chart-box--sm">
+      <canvas id="loginsChart"></canvas>
+    </div>
+  </div>
+  <div>
+    <h2>⚡ Top funkcije</h2>
+    <div class="chart-box chart-box--sm">
+      <canvas id="featuresChart"></canvas>
+    </div>
+  </div>
+</div>
+
+{# ============ TABELA KORISNIKA ============ #}
+<h2>👥 Aktivnost po korisniku ({{ days }} dana)</h2>
+{% if users %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Korisnik</th>
+        <th>Email</th>
+        <th class="num">Akcije</th>
+        <th>Zadnji put viđen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td><b>{{ u.name }}</b></td>
+        <td class="muted small">{{ u.email }}</td>
+        <td class="num">{{ u.actions }}</td>
+        <td class="small muted">{{ u.last_seen }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">Nema podataka za izabrani period.</p>
+{% endif %}
+
+{# ============ LIMITI PAKETA ============ #}
+{% if limits %}
+<h2>⚠️ Limiti paketa ({{ limits|length }} {{ "korisnik" if limits|length == 1 else "korisnika" }})</h2>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Korisnik</th>
+        <th>Paket</th>
+        <th>Proizvodi (mesec)</th>
+        <th>Narudžbine (mesec)</th>
+        <th>Ističe</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in limits %}
+      <tr class="{% if s.over_products or s.over_orders %}danger{% elif s.warn_products or s.warn_orders %}warn{% endif %}">
+        <td>
+          <b>{{ s.user_name or s.user_email }}</b><br>
+          <span class="muted small">{{ s.user_email }}</span>
+        </td>
+        <td>
+          <span class="badge badge--active">{{ s.plan_label }}</span>
+        </td>
+        <td>
+          {% if s.limits.max_products %}
+            <div style="display:flex; align-items:center; gap:.5rem; min-width:180px">
+              <span class="small" style="min-width:70px">
+                {{ s.usage.products_added }} / {{ s.limits.max_products }}
+              </span>
+              <div class="progress" style="flex:1; margin-top:0">
+                {% set pct = s.pct.products %}
+                {% set bar_class = 'danger' if pct >= 100 else ('warn' if pct >= 80 else '') %}
+                <div class="bar {{ bar_class }}"
+                     style="width: {{ [pct, 100]|min }}%"></div>
+              </div>
+              <span class="small {% if pct >= 100 %}text-danger{% elif pct >= 80 %}text-warn{% endif %}"
+                    style="min-width:45px; text-align:right">
+                {{ "%.0f"|format(pct) }}%
+              </span>
+            </div>
+          {% else %}
+            <span class="muted small">∞</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if s.limits.max_orders_month %}
+            <div style="display:flex; align-items:center; gap:.5rem; min-width:180px">
+              <span class="small" style="min-width:70px">
+                {{ s.usage.orders_created }} / {{ s.limits.max_orders_month }}
+              </span>
+              <div class="progress" style="flex:1; margin-top:0">
+                {% set pct = s.pct.orders %}
+                {% set bar_class = 'danger' if pct >= 100 else ('warn' if pct >= 80 else '') %}
+                <div class="bar {{ bar_class }}"
+                     style="width: {{ [pct, 100]|min }}%"></div>
+              </div>
+              <span class="small {% if pct >= 100 %}text-danger{% elif pct >= 80 %}text-warn{% endif %}"
+                    style="min-width:45px; text-align:right">
+                {{ "%.0f"|format(pct) }}%
+              </span>
+            </div>
+          {% else %}
+            <span class="muted small">∞</span>
+          {% endif %}
+        </td>
+        <td class="small">
+          {{ s.end_date or "—" }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="muted small" style="margin-top:.5rem">
+  <b>Legenda:</b>
+  <span class="text-danger">■</span> ≥100% (prekoračeno)
+  <span class="text-warn">■</span> ≥80% (blizu limita)
+  <span style="color:#10b981">■</span> &lt;80% (u redu)
+</p>
+{% else %}
+<h2>⚠️ Limiti paketa</h2>
+<p class="empty">Nema aktivnih pretplata.</p>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  // ============ LOGINS CHART ============
+  const loginsData = {{ logins|tojson }};
+  if (loginsData.length > 0) {
+    new Chart(document.getElementById('loginsChart'), {
+      type: 'line',
+      data: {
+        labels: loginsData.map(d => d.day),
+        datasets: [
+          {
+            label: 'Logini',
+            data: loginsData.map(d => d.logins),
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99,102,241,.12)',
+            tension: 0.3,
+            fill: true
+          },
+          {
+            label: 'Unikatni korisnici',
+            data: loginsData.map(d => d.unique_users),
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16,185,129,.12)',
+            tension: 0.3,
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+      }
+    });
+  } else {
+    document.getElementById('loginsChart').parentElement.innerHTML =
+      '<p class="empty">Nema logina u ovom periodu.</p>';
+  }
+
+  // ============ FEATURES CHART ============
+  const featuresData = {{ features|tojson }};
+  if (featuresData.length > 0) {
+    new Chart(document.getElementById('featuresChart'), {
+      type: 'bar',
+      data: {
+        labels: featuresData.map(f => f.feature_code),
+        datasets: [{
+          label: 'Poziva',
+          data: featuresData.map(f => f.total),
+          backgroundColor: '#6366f1'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+      }
+    });
+  } else {
+    document.getElementById('featuresChart').parentElement.innerHTML =
+      '<p class="empty">Nema korišćenja funkcija u ovom periodu.</p>';
+  }
+</script>
+{% endblock %}

@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS channels (
 
 CREATE TABLE IF NOT EXISTS products (
     id           SERIAL PRIMARY KEY,
+    user_id      INTEGER REFERENCES users(id) ON DELETE CASCADE,
     sku          TEXT UNIQUE NOT NULL,
     name         TEXT NOT NULL,
     price        NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -29,6 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_products_sku  ON products(sku);
 
 CREATE TABLE IF NOT EXISTS orders (
     id              SERIAL PRIMARY KEY,
+    user_id         INTEGER REFERENCES users(id) ON DELETE CASCADE,
     external_id     TEXT,
     source          TEXT DEFAULT 'manual',
     customer_name   TEXT NOT NULL,
@@ -76,6 +78,7 @@ ON CONFLICT (name) DO NOTHING;
 CREATE OR REPLACE VIEW v_order_profit AS
 SELECT
     o.id                AS order_id,
+    o.user_id           AS user_id,          -- ← DODATO
     o.created_at::timestamp AS order_date,
     o.status            AS status,
     c.id                AS channel_id,
@@ -121,6 +124,7 @@ CREATE TABLE IF NOT EXISTS team_members (
 
 CREATE TABLE IF NOT EXISTS projects (
     id                  SERIAL PRIMARY KEY,
+    user_id             INTEGER REFERENCES users(id) ON DELETE CASCADE,
     code                TEXT,
     name                TEXT NOT NULL,
     client              TEXT,
@@ -180,6 +184,7 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE OR REPLACE VIEW v_project_summary AS
 SELECT
     p.id                                    AS project_id,
+    p.user_id                               AS user_id,
     p.code                                  AS code,
     p.name                                  AS name,
     p.client                                AS client,
@@ -282,3 +287,58 @@ INSERT INTO channels (name, fee_percent) VALUES
     ('Payhip',    0.0),    -- ← DODATO
     ('TikTok',    0.0)     -- ← DODATO
 ON CONFLICT (name) DO NOTHING;
+
+-- ============================================
+-- ADMIN TRACKING TABELE
+-- ============================================
+
+-- 1. Beleži svaki login i posetu stranici
+CREATE TABLE IF NOT EXISTS user_activity (
+    id              SERIAL PRIMARY KEY,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint        VARCHAR(120),           -- npr. 'login', 'inventory.list'
+    method          VARCHAR(10),            -- GET, POST
+    path            VARCHAR(255),           -- /inventory/orders
+    response_code   INTEGER,                -- 200, 302, 404...
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_activity_user    ON user_activity(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_activity_created ON user_activity(created_at);
+CREATE INDEX IF NOT EXISTS idx_user_activity_endpoint ON user_activity(endpoint);
+
+-- 2. Pretplate po korisniku
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id              SERIAL PRIMARY KEY,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    plan_name       VARCHAR(20) NOT NULL,   -- starter, pro, business, enterprise
+    status          VARCHAR(20) NOT NULL DEFAULT 'active',  -- active, expired, canceled, trial
+    start_date      DATE NOT NULL DEFAULT CURRENT_DATE,
+    end_date        DATE,
+    renewal_date    DATE,
+    is_self_hosted  BOOLEAN NOT NULL DEFAULT FALSE,
+    license_key     VARCHAR(120),           -- za Enterprise
+    sla_level       VARCHAR(20),            -- '12h', '24h', '48h'
+    notes           TEXT,
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user   ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_plan   ON subscriptions(plan_name);
+
+-- 3. Koliko puta je koja funkcija iskorišćena (po mesecu)
+CREATE TABLE IF NOT EXISTS usage_logs (
+    id              SERIAL PRIMARY KEY,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    feature_code    VARCHAR(60) NOT NULL,   -- npr. 'create_order', 'add_product'
+    period          VARCHAR(7) NOT NULL,    -- '2026-10'
+    count           INTEGER NOT NULL DEFAULT 0,
+    updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, feature_code, period)
+);
+
+CREATE INDEX IF NOT EXISTS idx_usage_logs_user    ON usage_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_period  ON usage_logs(period);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_feature ON usage_logs(feature_code);

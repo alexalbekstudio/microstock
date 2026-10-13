@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Pretplate — MicroStock{% endblock %}
+{% block topbar_title %}💳 Pretplate{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>💳 Pretplate</h1>
+  <div class="page-header__actions">
+    <a href="{{ url_for('admin_subscription_new') }}" class="btn btn--primary">
+      ➕ Nova pretplata
+    </a>
+  </div>
+</div>
+
+{# ============ KPI ============ #}
+<div class="kpi-strip">
+  <div class="kpi kpi--good">
+    <div class="kpi__label">✅ Aktivne</div>
+    <div class="kpi__value">{{ summary.total_active }}</div>
+    <div class="kpi__meta">ukupno pretplata</div>
+  </div>
+  {% for plan_name, plan in plans.items() %}
+  <div class="kpi">
+    <div class="kpi__label">{{ plan.label }}</div>
+    <div class="kpi__value">{{ summary.by_plan.get(plan_name, 0) }}</div>
+    <div class="kpi__meta">
+      {% if plan.price_eur %}€{{ plan.price_eur }}/mes{% else %}na upit{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  <div class="kpi {% if summary.expiring_soon > 0 %}kpi--warn{% endif %}">
+    <div class="kpi__label">⏰ Istiće (7d)</div>
+    <div class="kpi__value">{{ summary.expiring_soon }}</div>
+    <div class="kpi__meta">treba obnoviti</div>
+  </div>
+</div>
+
+{# ============ FILTERI ============ #}
+<form method="get" class="filter-form">
+  <input type="text" name="q" value="{{ f_search }}" placeholder="Pretraga (email, ime)...">
+  <select name="plan">
+    <option value="">Svi paketi</option>
+    {% for code, plan in plans.items() %}
+      <option value="{{ code }}" {% if f_plan==code %}selected{% endif %}>
+        {{ plan.label }}
+      </option>
+    {% endfor %}
+  </select>
+  <select name="status">
+    <option value="">Svi statusi</option>
+    <option value="active"   {% if f_status=='active' %}selected{% endif %}>Aktivna</option>
+    <option value="expired"  {% if f_status=='expired' %}selected{% endif %}>Istekla</option>
+    <option value="canceled" {% if f_status=='canceled' %}selected{% endif %}>Otkazana</option>
+    <option value="trial"    {% if f_status=='trial' %}selected{% endif %}>Probni period</option>
+  </select>
+  <button type="submit" class="btn btn--primary">🔍 Filtriraj</button>
+  <a href="{{ url_for('admin_subscriptions') }}" class="btn btn--secondary">Reset</a>
+</form>
+
+{# ============ TABELA ============ #}
+{% if subscriptions %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Korisnik</th>
+        <th>Paket</th>
+        <th>Status</th>
+        <th>Početak</th>
+        <th>Ističe</th>
+        <th>Renewal</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in subscriptions %}
+      <tr>
+        <td>
+          <b>{{ s.user_name or s.user_email }}</b><br>
+          <span class="muted small">{{ s.user_email }}</span>
+        </td>
+        <td><span class="badge badge--active">{{ plans[s.plan_name].label if s.plan_name in plans else s.plan_name }}</span></td>
+        <td>
+          <span class="badge badge--status-{{ s.status }}">{{ s.status }}</span>
+        </td>
+        <td class="small">{{ s.start_date or "—" }}</td>
+        <td class="small">{{ s.end_date or "—" }}</td>
+        <td class="small">{{ s.renewal_date or "—" }}</td>
+        <td>
+          <a href="{{ url_for('admin_subscription_detail', sub_id=s.id) }}"
+             class="btn-link btn--sm">Otvori</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">Nema pretplata za izabrane filtere.</p>
+{% endif %}
+
+{% endblock %}

@@ -302,3 +302,136 @@ def _send_to(to_email, subject, html):
     except Exception as e:
         current_app.logger.error(f"MAIL greška: {e}")
         return False
+
+# ============================================================
+# 6) PRETPLATA ISTIČE (7 dana pre)
+# ============================================================
+def send_subscription_expiring(to_email, user_name, plan_label, end_date, days_left):
+    """
+    Podsetnik korisniku da pretplata ističe.
+    to_email: email korisnika
+    days_left: broj dana do isteka
+    """
+    subject = f"⏰ Tvoja {plan_label} pretplata ističe za {days_left} dana"
+    body = f"""
+      <p>Zdravo {user_name or 'korisniče'},</p>
+      <p>Tvoja <b>{plan_label}</b> pretplata na MicroStock ističe
+         <b>{end_date}</b> ({days_left} dana).</p>
+      <p>Da nastaviš bez prekida, obnovi pretplatu na vreme.</p>
+      <p style="margin:24px 0">
+        <a href="mailto:alexalbekstudio.design@gmail.com?subject=Obnova pretplate"
+           style="background:#6366f1;color:#fff;padding:12px 24px;
+                  border-radius:6px;text-decoration:none;font-weight:600">
+          Obnovi pretplatu
+        </a>
+      </p>
+      <p class="muted small">Ako ne obnoviš, nalog ostaje aktivan, ali pretplata prelazi u status „istekla".</p>
+    """
+    return _send_to(to_email, subject, _wrap("Pretplata ističe", "#f59e0b", body))
+
+
+def send_subscription_expiring_admin(user_email, user_name, plan_label, end_date, days_left):
+    """Podsetnik adminu da nekom korisniku ističe pretplata."""
+    subject = f"⏰ Pretplata ističe: {user_email} ({plan_label})"
+    body = f"""
+      <p>Pretplata korisnika <b>{user_name or user_email}</b> ističe za <b>{days_left} dana</b>.</p>
+      <table style="border-collapse:collapse;margin:12px 0">
+        <tr><td style="padding:4px 12px 4px 0"><b>Email:</b></td><td>{user_email}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0"><b>Paket:</b></td><td>{plan_label}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0"><b>Ističe:</b></td><td>{end_date}</td></tr>
+      </table>
+      <p>Preporuka: kontaktiraj korisnika za obnovu.</p>
+    """
+    return _send(subject, _wrap("Pretplata ističe", "#f59e0b", body))
+
+
+# ============================================================
+# 7) LIMIT PAKETA (80% iskorišćenosti)
+# ============================================================
+def send_package_limit_warning(to_email, user_name, plan_label, resource, current, max_value, pct):
+    """
+    Upozorenje korisniku da je blizu limita paketa.
+    resource: 'proizvoda' ili 'narudžbina'
+    """
+    subject = f"⚠️ Blizu si limita paketa {plan_label} — {pct:.0f}% iskorišćeno"
+    body = f"""
+      <p>Zdravo {user_name or 'korisniče'},</p>
+      <p>Na paketu <b>{plan_label}</b> iskoristio si
+         <b>{current} od {max_value}</b> dozvoljenih {resource} ({pct:.0f}%).</p>
+      <p>Kada pređeš limit, nećeš moći da dodaješ nove {resource}.</p>
+      <p>Predlog: nadogradi na viši paket i nastavi bez ograničenja.</p>
+      <p style="margin:24px 0">
+        <a href="mailto:alexalbekstudio.design@gmail.com?subject=Nadogradnja paketa"
+           style="background:#6366f1;color:#fff;padding:12px 24px;
+                  border-radius:6px;text-decoration:none;font-weight:600">
+          Nadogradi paket
+        </a>
+      </p>
+    """
+    return _send_to(to_email, subject, _wrap("Limit paketa", "#f59e0b", body))
+
+
+# ============================================================
+# 8) ADMIN DNEVNI REPORT (nove metrike)
+# ============================================================
+def send_admin_daily_report(kpi, logins, features, expiring):
+    """
+    Dnevni admin report — aktivnost + pretplate koje ističu.
+    """
+    if expiring:
+        expiring_rows = "".join(
+            f"<tr><td style='padding:4px 12px 4px 0'>{e['email']}</td>"
+            f"<td style='padding:4px 12px 4px 0'>{e['plan_label']}</td>"
+            f"<td style='padding:4px 12px 4px 0'>{e['end_date']}</td>"
+            f"<td style='padding:4px 12px 4px 0'><b>{e['days_left']} d</b></td></tr>"
+            for e in expiring
+        )
+        expiring_html = f"""
+          <h3>⏰ Pretplate koje ističu (7 dana)</h3>
+          <table style="border-collapse:collapse">
+            <tr style="background:#f3f4f6">
+              <th style="padding:6px 12px 6px 0;text-align:left">Email</th>
+              <th style="padding:6px 12px 6px 0;text-align:left">Paket</th>
+              <th style="padding:6px 12px 6px 0;text-align:left">Ističe</th>
+              <th style="padding:6px 12px 6px 0;text-align:left">Dana</th>
+            </tr>
+            {expiring_rows}
+          </table>
+        """
+    else:
+        expiring_html = "<p><i>Nema pretplata koje ističu u narednih 7 dana.</i></p>"
+
+    features_rows = "".join(
+        f"<tr><td style='padding:4px 12px 4px 0'>{f['feature_code']}</td>"
+        f"<td style='padding:4px 12px 4px 0'>{f['total']}</td></tr>"
+        for f in features
+    ) or "<tr><td colspan='2'><i>Nema akcija danas.</i></td></tr>"
+
+    subject = f"📊 MicroStock dnevni report — {kpi['logins_today']} logina danas"
+    body = f"""
+      <h3>📊 Današnja aktivnost</h3>
+      <table style="border-collapse:collapse;margin:12px 0">
+        <tr><td style="padding:4px 12px 4px 0"><b>Aktivni korisnici (7d):</b></td>
+            <td>{kpi['active_7']}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0"><b>Logini danas:</b></td>
+            <td>{kpi['logins_today']}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0"><b>Akcije (30d):</b></td>
+            <td>{kpi['actions_period']}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0"><b>Ukupno korisnika:</b></td>
+            <td>{kpi['total_users']}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0"><b>Aktivne pretplate:</b></td>
+            <td>{kpi['active_subs']}</td></tr>
+      </table>
+
+      <h3>⚡ Top funkcije (30 dana)</h3>
+      <table style="border-collapse:collapse">
+        <tr style="background:#f3f4f6">
+          <th style="padding:6px 12px 6px 0;text-align:left">Funkcija</th>
+          <th style="padding:6px 12px 6px 0;text-align:left">Poziva</th>
+        </tr>
+        {features_rows}
+      </table>
+
+      {expiring_html}
+    """
+    return _send(subject, _wrap("Dnevni report", "#6366f1", body))

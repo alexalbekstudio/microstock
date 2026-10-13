@@ -39,6 +39,46 @@ login_manager.init_app(app)
 init_mail(app)
 init_scheduler(app)
 
+# ==================== ADMIN TRACKING ====================
+
+@app.before_request
+def _track_user_activity():
+    """
+    Automatski beleži svaku posetu stranici ulogovanog korisnika.
+    Preskače statičke fajlove, login/logout (već se beleže), demo i PWA rute.
+    """
+    from flask_login import current_user
+
+    # 1. Samo ulogovani korisnici
+    if not current_user.is_authenticated:
+        return
+
+    # 2. Demo korisnik — preskoči (da ne zagađuje statistiku)
+    from flask import session
+    if session.get("demo_mode"):
+        return
+
+    # 3. Preskoči šum
+    path = request.path
+    if (
+        path.startswith("/static/")
+        or path in ("/favicon.ico", "/login", "/logout",
+                    "/manifest.json", "/sw.js", "/offline")
+        or path.startswith("/set-language/")
+        or path.startswith("/set-currency/")
+    ):
+        return
+
+    # 4. Upiši u bazu
+    from tracking import record_activity
+    record_activity(
+        user_id=current_user.id,
+        endpoint=request.endpoint or "",
+        method=request.method,
+        path=path,
+        response_code=None,   # ne znamo još u before_request
+    )
+
 @app.route("/favicon.ico")
 def favicon():
     from flask import send_from_directory
@@ -317,7 +357,7 @@ ADMIN_ONLY = ("admin",)
 def index():
     days = request.args.get("days", type=int) or 30
     import dashboard
-    data = dashboard.control_center(days)
+    data = dashboard.control_center(current_user.id, days)
 
     # Kurs za JS konverziju u chart-ovima
     from currency_rates import get_rate
@@ -346,8 +386,8 @@ def products():
     show_all = request.args.get("all") == "1"
     return render_template(
         "products.html",
-        products=models.list_products(search, only_low, include_inactive=show_all),
-        low=models.low_stock_products(),
+        products=models.list_products(current_user.id, search, only_low, include_inactive=show_all),
+        low=models.low_stock_products(current_user.id),
         search=search, only_low=only_low, show_all=show_all
     )
 
@@ -358,6 +398,7 @@ def products():
 def add_product():
     try:
         models.add_product(
+            user_id=current_user.id,
             sku=request.form["sku"].strip(),
             name=request.form["name"].strip(),
             price=float(request.form["price"]),
@@ -366,6 +407,9 @@ def add_product():
             low_stock_at=int(request.form.get("low_stock_at") or 3),
         )
         flash("Proizvod dodat.", "ok")
+                # Tracking
+        from tracking import record_usage
+        record_usage(current_user.id, "add_product")
     except Exception as e:
         flash(f"Greška: {e}", "err")
     return redirect(url_for("products"))
@@ -374,7 +418,7 @@ def add_product():
 @login_required
 @role_required(*EDIT_ROLES)
 def edit_product(pid):
-    p = models.get_product(pid)
+    p = models.get_product(pid, user_id=current_user.id)
     if not p:
         abort(404)
     if request.method == "POST":
@@ -386,6 +430,7 @@ def edit_product(pid):
             float(request.form.get("cost") or 0),
             int(request.form.get("stock") or 0),
             int(request.form.get("low_stock_at") or 3),
+            user_id=current_user.id,
         )
         flash("Proizvod sačuvan.", "ok")
         return redirect(url_for("products"))
@@ -396,7 +441,7 @@ def edit_product(pid):
 @login_required
 @role_required(*EDIT_ROLES)
 def delete_product(pid):
-    models.archive_product(pid)
+    models.archive_product(pid, user_id=current_user.id)
     flash("Proizvod arhiviran.", "ok")
     return redirect(url_for("products"))
 
@@ -412,8 +457,8 @@ def orders():
     search     = request.args.get("q") or None
     return render_template(
         "orders.html",
-        orders=models.list_orders(status, int(channel_id) if channel_id else None, search),
-        products=models.list_products(),
+        orders=models.list_orders(current_user.id, status, int(channel_id) if channel_id else None, search),
+        products=models.list_products(current_user.id),
         channels=models.list_channels(),
         f_status=status, f_channel=channel_id, f_search=search or ""
     )
@@ -459,6 +504,7 @@ def new_order():
         return redirect(url_for("orders"))
 
     order_id, dup = models.create_order(
+        user_id=current_user.id,
         customer_name=request.form["customer_name"].strip(),
         channel_id=int(request.form["channel_id"]),
         items=items,
@@ -469,6 +515,11 @@ def new_order():
     )
     if dup:
         flash("Narudžbina već postoji (duplikat).", "err")
+
+    if not dup:
+        # Tracking
+        from tracking import record_usage
+        record_usage(current_user.id, "create_order")
     return redirect(url_for("invoice", order_id=order_id))
 
 
@@ -476,7 +527,7 @@ def new_order():
 @login_required
 @role_required(*ALL_ROLES)
 def order_detail(order_id):
-    order, items = models.get_order(order_id)
+    order, items = models.get_order(order_id, user_id=current_user.id)
     if not order:
         abort(404)
     return render_template("order_edit.html",
@@ -497,6 +548,7 @@ def edit_order(order_id):
         shipping_cost=float(request.form.get("shipping_cost") or 0),
         shipping_method=request.form.get("shipping_method", "").strip(),
         customer_phone=request.form.get("customer_phone", "").strip(),
+        user_id=current_user.id,
     )
     flash("Narudžbina sačuvana.", "ok")
     return redirect(url_for("order_detail", order_id=order_id))
@@ -506,7 +558,7 @@ def edit_order(order_id):
 @login_required
 @role_required(*EDIT_ROLES)
 def delete_order(order_id):
-    models.delete_order(order_id)
+    models.delete_order(order_id, user_id=current_user.id)
     flash("Narudžbina obrisana (zalihe vraćene).", "ok")
     return redirect(url_for("orders"))
 
@@ -517,7 +569,7 @@ def delete_order(order_id):
 def change_status(order_id, status):
     if status not in ("new", "paid", "shipped", "done", "cancelled"):
         abort(400)
-    models.set_order_status(order_id, status)
+    models.set_order_status(order_id, status, user_id=current_user.id)
     return redirect(request.referrer or url_for("orders"))
 
 
@@ -527,7 +579,7 @@ def change_status(order_id, status):
 @login_required
 @role_required(*ALL_ROLES)
 def invoice(order_id):
-    order, items = models.get_order(order_id)
+    order, items = models.get_order(order_id, user_id=current_user.id)
     if not order:
         abort(404)
     subtotal = sum(float(i["qty"]) * float(i["unit_price"]) for i in items)
@@ -542,7 +594,7 @@ def invoice(order_id):
 @login_required
 @role_required(*ALL_ROLES)
 def invoice_pdf(order_id):
-    order, items = models.get_order(order_id)
+    order, items = models.get_order(order_id, user_id=current_user.id)
     if not order:
         abort(404)
 
@@ -570,6 +622,9 @@ def invoice_pdf(order_id):
         currency=currency, currency_symbol=symbol,
     )
 
+    from tracking import record_usage
+    record_usage(current_user.id, "export_invoice_pdf")
+
     filename = f"racun-{order_id:05d}-{currency}.pdf"
     return send_file(
         io.BytesIO(pdf_bytes),
@@ -590,10 +645,10 @@ def analytics_pdf():
     symbol = SUPPORTED_CURRENCIES[currency]["symbol"]
 
     # Uzmi sve podatke iz analytics modula
-    kpi = analytics.overview(days)
-    channels = analytics.by_channel(days)
-    products = analytics.by_product(days, limit=20)
-    customers = analytics.top_customers(days, limit=20)
+    kpi = analytics.overview(current_user.id, days)
+    channels = analytics.by_channel(current_user.id, days)
+    products = analytics.by_product(current_user.id, days, limit=20)
+    customers = analytics.top_customers(current_user.id, days, limit=20)
 
     from pdf import generate_analytics_pdf
     pdf_bytes = generate_analytics_pdf(
@@ -622,7 +677,7 @@ def analytics_pdf():
 @role_required(*ALL_ROLES)
 def project_pdf(pid):
     """PDF izveštaj projekta."""
-    p = proj.get_project(pid)
+    p = proj.get_project(pid, user_id=current_user.id)
     if not p:
         abort(404)
 
@@ -737,6 +792,146 @@ def import_logs():
 
     return render_template("import_logs.html", logs=logs)
 
+# ==================== ADMIN: DASHBOARD ====================
+
+@app.route("/admin/dashboard")
+@login_required
+@role_required(*ADMIN_ONLY)
+def admin_dashboard():
+    """Admin Dashboard — aktivnost korisnika, top funkcije, pretplate."""
+    import admin_analytics
+
+    days = request.args.get("days", type=int) or 30
+
+    return render_template(
+        "admin_dashboard.html",
+        kpi=admin_analytics.kpi_overview(days),
+        logins=admin_analytics.logins_by_day(days),
+        features=admin_analytics.top_features(days),
+        users=admin_analytics.activity_by_user(days),
+        limits=admin_analytics.package_limits_overview(),
+        days=days,
+    )
+
+# ==================== ADMIN: PRETPLATE ====================
+
+@app.route("/admin/subscriptions")
+@login_required
+@role_required(*ADMIN_ONLY)
+def admin_subscriptions():
+    """Lista pretplata sa filterima."""
+    import subscriptions as subs
+
+    status = request.args.get("status", "").strip() or None
+    plan = request.args.get("plan", "").strip() or None
+    search = request.args.get("q", "").strip() or None
+
+    return render_template(
+        "admin_subscriptions.html",
+        subscriptions=subs.list_subscriptions(status, plan, search),
+        summary=subs.subscriptions_summary(),
+        plans=subs.PLANS,
+        f_status=status or "",
+        f_plan=plan or "",
+        f_search=search or "",
+    )
+
+
+@app.route("/admin/subscriptions/new", methods=["GET", "POST"])
+@login_required
+@role_required(*ADMIN_ONLY)
+def admin_subscription_new():
+    """Nova pretplata."""
+    import subscriptions as subs
+    from users import list_users
+
+    if request.method == "POST":
+        try:
+            sub_id = subs.add_subscription(
+                user_id=request.form.get("user_id", type=int),
+                plan_name=request.form.get("plan_name", "").strip(),
+                status=request.form.get("status", "active"),
+                start_date=request.form.get("start_date") or None,
+                end_date=request.form.get("end_date") or None,
+                renewal_date=request.form.get("renewal_date") or None,
+                is_self_hosted=request.form.get("is_self_hosted") == "on",
+                license_key=request.form.get("license_key", "").strip() or None,
+                sla_level=request.form.get("sla_level", "").strip() or None,
+                notes=request.form.get("notes", "").strip() or None,
+            )
+            flash("Pretplata dodata.", "success")
+            return redirect(url_for("admin_subscription_detail", sub_id=sub_id))
+        except Exception as e:
+            flash(f"Greška: {e}", "err")
+
+    return render_template(
+        "subscription_form.html",
+        sub=None,
+        users=list_users(),
+        plans=subs.PLANS,
+    )
+
+
+@app.route("/admin/subscriptions/<int:sub_id>", methods=["GET", "POST"])
+@login_required
+@role_required(*ADMIN_ONLY)
+def admin_subscription_detail(sub_id):
+    """Detalji + izmena pretplate."""
+    import subscriptions as subs
+    from users import list_users
+
+    sub = subs.get_subscription(sub_id)
+    if not sub:
+        abort(404)
+
+    if request.method == "POST":
+        try:
+            subs.update_subscription(
+                sub_id,
+                plan_name=request.form.get("plan_name", "").strip(),
+                status=request.form.get("status", "active"),
+                start_date=request.form.get("start_date") or None,
+                end_date=request.form.get("end_date") or None,
+                renewal_date=request.form.get("renewal_date") or None,
+                is_self_hosted=request.form.get("is_self_hosted") == "on",
+                license_key=request.form.get("license_key", "").strip() or None,
+                sla_level=request.form.get("sla_level", "").strip() or None,
+                notes=request.form.get("notes", "").strip() or None,
+            )
+            flash("Pretplata sačuvana.", "success")
+            return redirect(url_for("admin_subscription_detail", sub_id=sub_id))
+        except Exception as e:
+            flash(f"Greška: {e}", "err")
+
+    return render_template(
+        "subscription_form.html",
+        sub=sub,
+        users=list_users(),
+        plans=subs.PLANS,
+    )
+
+
+@app.route("/admin/subscriptions/<int:sub_id>/cancel", methods=["POST"])
+@login_required
+@role_required(*ADMIN_ONLY)
+def admin_subscription_cancel(sub_id):
+    """Otkazivanje pretplate."""
+    import subscriptions as subs
+    subs.cancel_subscription(sub_id)
+    flash("Pretplata otkazana.", "success")
+    return redirect(url_for("admin_subscriptions"))
+
+
+@app.route("/admin/subscriptions/<int:sub_id>/delete", methods=["POST"])
+@login_required
+@role_required(*ADMIN_ONLY)
+def admin_subscription_delete(sub_id):
+    """Brisanje pretplate."""
+    import subscriptions as subs
+    subs.delete_subscription(sub_id)
+    flash("Pretplata obrisana.", "success")
+    return redirect(url_for("admin_subscriptions"))
+
 # ==================== WEBHOOK SINHRONIZACIJA ====================
 
 @app.route("/webhook/orders", methods=["POST"])
@@ -762,6 +957,7 @@ def webhook_orders():
         channel_id = _resolve_channel(payload)
         items = _resolve_items(payload.get("items", []))
         order_id, dup = models.create_order(
+            user_id=1,  # TODO: iz API ključa kad bude multi-tenant webhook
             customer_name=payload.get("customer_name", "Nepoznat kupac"),
             channel_id=channel_id,
             items=items,
@@ -895,7 +1091,7 @@ def api_product_by_url():
     if not product_id:
         return jsonify({"error": "Proizvod nije nađen", "raw": raw}), 404
 
-    p = models.get_product(product_id)
+    p = models.get_product(product_id, user_id=current_user.id)
     if not p:
         return jsonify({"error": "Proizvod ne postoji"}), 404
 
@@ -925,7 +1121,7 @@ def product_detail_redirect(pid):
 @role_required(*ALL_ROLES)
 def product_qr_png(pid):
     """Generiše QR kod za proizvod (URL do stranice proizvoda)."""
-    p = models.get_product(pid)
+    p = models.get_product(pid, user_id=current_user.id)
     if not p:
         abort(404)
 
@@ -974,12 +1170,12 @@ def analytics_view():
     return render_template(
         "analytics.html",
         days=days,
-        kpi=analytics.overview(days),
-        channels=analytics.by_channel(days),
-        products=analytics.by_product(days, limit=15),
-        trend=analytics.trend(days or 30),
-        loss=analytics.loss_makers(days),
-        customers=analytics.top_customers(days, limit=10),
+        kpi=analytics.overview(current_user.id, days),
+        channels=analytics.by_channel(current_user.id, days),
+        products=analytics.by_product(current_user.id, days, limit=15),
+        trend=analytics.trend(current_user.id, days or 30),
+        loss=analytics.loss_makers(current_user.id, days),
+        customers=analytics.top_customers(current_user.id, days, limit=10),
         eur_rate=eur_rate,
         usd_rate=usd_rate,
     )
@@ -991,7 +1187,7 @@ def analytics_view():
 @role_required(*ALL_ROLES)
 def pricing_view():
     """Kalkulator cena — forma + live JS kalkulacija."""
-    products = models.list_products(include_inactive=False)
+    products = models.list_products(current_user.id, include_inactive=False)
     channels = models.list_channels()
     presets = pricing.list_presets()
     return render_template(
@@ -1022,7 +1218,7 @@ def pricing_apply():
         flash("Neispravan proizvod ili cena.", "err")
         return redirect(url_for("pricing_view"))
 
-    p = models.get_product(product_id)
+    p = models.get_product(product_id, user_id=current_user.id)
     if not p:
         flash("Proizvod nije nađen.", "err")
         return redirect(url_for("pricing_view"))
@@ -1035,6 +1231,7 @@ def pricing_apply():
         p["cost"] or 0,
         p["stock"] or 0,
         p["low_stock_at"] or 3,
+        user_id=current_user.id,
     )
 
     # Upiši u istoriju
@@ -1118,7 +1315,7 @@ def pricing_bulk():
         shipping   = request.form.get("shipping", type=float) or 0
         only_low   = request.form.get("only_low") == "on"
 
-        products = models.list_products(include_inactive=False)
+        products = models.list_products(current_user.id, include_inactive=False)
 
         rows = []
         for p in products:
@@ -1187,12 +1384,13 @@ def pricing_bulk_apply():
             new_price = float(price_str)
             if new_price <= 0:
                 continue
-            p = models.get_product(pid)
+            p = models.get_product(pid, user_id=current_user.id)
             if not p:
                 continue
             models.update_product(
                 pid, p["sku"], p["name"], new_price,
                 p["cost"] or 0, p["stock"] or 0, p["low_stock_at"] or 3,
+                user_id=current_user.id,
             )
             updated += 1
         except Exception:
@@ -1272,8 +1470,8 @@ def projects_view():
     status = request.args.get("status") or None
     return render_template(
         "projects.html",
-        projects=proj.list_projects(status),
-        overview=proj.projects_overview(),
+        projects=proj.list_projects(current_user.id, status),
+        overview=proj.projects_overview(current_user.id),
         f_status=status,
     )
 
@@ -1284,6 +1482,7 @@ def projects_view():
 def project_new():
     if request.method == "POST":
         proj.add_project(
+            user_id=current_user.id,
             code=request.form["code"].strip(),
             name=request.form["name"].strip(),
             client=request.form.get("client", "").strip(),
@@ -1301,7 +1500,7 @@ def project_new():
 @login_required
 @role_required(*ALL_ROLES)
 def project_detail(pid):
-    p = proj.get_project(pid)
+    p = proj.get_project(pid, user_id=current_user.id)
     if not p:
         abort(404)
     return render_template(
@@ -1317,7 +1516,7 @@ def project_detail(pid):
 @login_required
 @role_required(*EDIT_ROLES)
 def project_edit(pid):
-    p = proj.get_project(pid)
+    p = proj.get_project(pid, user_id=current_user.id)
     if not p:
         abort(404)
     if request.method == "POST":
@@ -1331,6 +1530,7 @@ def project_edit(pid):
             deadline=request.form.get("deadline") or None,
             status=request.form["status"],
             notes=request.form.get("notes", ""),
+            user_id=current_user.id,
         )
         flash("Projekat sačuvan.", "ok")
         return redirect(url_for("project_detail", pid=pid))
@@ -1341,7 +1541,7 @@ def project_edit(pid):
 @login_required
 @role_required(*EDIT_ROLES)
 def project_delete(pid):
-    proj.delete_project(pid)
+    proj.delete_project(pid, user_id=current_user.id)
     flash("Projekat obrisan.", "ok")
     return redirect(url_for("projects_view"))
 
@@ -1899,7 +2099,7 @@ def suppliers_view():
 
     return render_template(
         "suppliers.html",
-        suppliers=supp.list_suppliers(search, only_active),
+        suppliers=supp.list_suppliers(current_user.id, search, only_active),
         search=search,
         only_active=only_active,
         edit_roles=EDIT_ROLES,
@@ -1916,6 +2116,7 @@ def supplier_new():
     if request.method == "POST":
         try:
             supp.add_supplier(
+                user_id=current_user.id,
                 name=request.form["name"].strip(),
                 contact_person=request.form.get("contact_person", "").strip(),
                 email=request.form.get("email", "").strip(),
@@ -1929,6 +2130,8 @@ def supplier_new():
                 notes=request.form.get("notes", "").strip(),
             )
             flash("Dobavljač dodat.", "success")
+            from tracking import record_usage
+            record_usage(current_user.id, "add_supplier")
             return redirect(url_for("suppliers_view"))
         except Exception as e:
             flash(f"Greška: {e}", "err")
@@ -1943,7 +2146,7 @@ def supplier_detail(sid):
     """Detalji + izmena dobavljača."""
     import suppliers as supp
 
-    s = supp.get_supplier(sid)
+    s = supp.get_supplier(sid, user_id=current_user.id)
     if not s:
         abort(404)
 
@@ -1978,7 +2181,7 @@ def supplier_detail(sid):
 def supplier_archive(sid):
     """Arhiviraj dobavljača."""
     import suppliers as supp
-    supp.archive_supplier(sid)
+    supp.archive_supplier(sid, user_id=current_user.id)
     flash("Dobavljač arhiviran.", "success")
     return redirect(url_for("suppliers_view"))
 
@@ -1990,7 +2193,7 @@ def supplier_delete(sid):
     """Obriši dobavljača (samo ako nema računa)."""
     import suppliers as supp
     try:
-        supp.delete_supplier(sid)
+        supp.delete_supplier(sid, user_id=current_user.id)
         flash("Dobavljač obrisan.", "success")
     except Exception as e:
         flash(str(e), "err")
@@ -2003,7 +2206,7 @@ def supplier_delete(sid):
 def api_suppliers():
     """JSON lista dobavljača (za autocomplete)."""
     import suppliers as supp
-    rows = supp.list_suppliers(only_active=True)
+    rows = supp.list_suppliers(current_user.id, only_active=True)
     return jsonify([
         {"id": r["id"], "name": r["name"]}
         for r in rows
@@ -2025,12 +2228,12 @@ def purchases_view():
 
     return render_template(
         "purchases.html",
-        invoices=purch.list_invoices(search, status, supplier_id),
-        suppliers=supp.list_suppliers(only_active=False),
+        invoices=purch.list_invoices(current_user.id, search, status, supplier_id),
+        suppliers=supp.list_suppliers(current_user.id, only_active=False),
         search=search,
         f_status=status or "",
         f_supplier=supplier_id,
-        kpi=purch.statuses_count(),
+        kpi=purch.statuses_count(current_user.id),
     )
 
 
@@ -2060,6 +2263,7 @@ def purchase_new():
                     return redirect(url_for("purchase_new"))
 
             iid = purch.add_invoice(
+                user_id=current_user.id,
                 supplier_id=request.form.get("supplier_id", type=int),
                 invoice_number=request.form.get("invoice_number", "").strip(),
                 invoice_date=request.form.get("invoice_date") or None,
@@ -2073,6 +2277,8 @@ def purchase_new():
                 notes=request.form.get("notes", "").strip(),
             )
             flash("Račun dodat. Dodaj stavke.", "success")
+            from tracking import record_usage
+            record_usage(current_user.id, "add_purchase")
             return redirect(url_for("purchase_detail", iid=iid))
         except Exception as e:
             flash(f"Greška: {e}", "err")
@@ -2080,8 +2286,8 @@ def purchase_new():
     return render_template(
         "purchase_form.html",
         inv=None,
-        suppliers=supp.list_suppliers(only_active=True),
-        products=models.list_products(include_inactive=False),
+        suppliers=supp.list_suppliers(current_user.id, only_active=True),
+        products=models.list_products(current_user.id, include_inactive=False),
     )
 
 
@@ -2094,7 +2300,7 @@ def purchase_detail(iid):
     import suppliers as supp
     import models
 
-    inv = purch.get_invoice(iid)
+    inv = purch.get_invoice(iid, user_id=current_user.id)
     if not inv:
         abort(404)
 
@@ -2111,6 +2317,7 @@ def purchase_detail(iid):
                 currency=request.form.get("currency", "RSD"),
                 status=request.form.get("status", "pending"),
                 notes=request.form.get("notes", "").strip(),
+                user_id=current_user.id,
             )
             flash("Račun sačuvan.", "success")
         except Exception as e:
@@ -2121,8 +2328,8 @@ def purchase_detail(iid):
         "purchase_detail.html",
         inv=inv,
         items=purch.list_items(iid),
-        suppliers=supp.list_suppliers(only_active=False),
-        products=models.list_products(include_inactive=False),
+        suppliers=supp.list_suppliers(current_user.id, only_active=False),
+        products=models.list_products(current_user.id, include_inactive=False),
     )
 
 
@@ -2235,11 +2442,11 @@ def purchase_set_status(iid, status):
         except Exception as e:
             flash(f"Greška: {e}", "err")
 
-    purch.set_status(iid, status, paid_date=str(date.today()) if status == "paid" else None)
+    purch.set_status(iid, status, paid_date=str(date.today()) if status == "paid" else None, user_id=current_user.id)
     # Auto-update product costs ako je plaćeno ili delimično plaćeno
     if status in ("paid", "partial"):
         try:
-            updated = purch.recalc_product_costs()
+            updated = purch.recalc_product_costs(user_id=current_user.id)
             if updated > 0:
                 flash(f"Ažurirano {updated} nabavnih cena proizvoda.", "success")
         except Exception as e:
@@ -2255,7 +2462,7 @@ def purchase_file(iid):
     """Preuzimanje skeniranog fajla."""
     import purchases as purch
 
-    row = purch.get_file(iid)
+    row = purch.get_file(iid, user_id=current_user.id)
     if not row or not row["file_data"]:
         abort(404)
 
@@ -2274,7 +2481,7 @@ def purchase_file(iid):
 def purchase_delete(iid):
     """Briše račun."""
     import purchases as purch
-    purch.delete_invoice(iid)
+    purch.delete_invoice(iid, user_id=current_user.id)
     flash("Račun obrisan.", "success")
     return redirect(url_for("purchases_view"))
 
@@ -2290,9 +2497,9 @@ def purchases_reports():
 
     return render_template(
         "purchases_reports.html",
-        by_supplier=purch.report_by_supplier(date_from, date_to),
-        by_month=purch.report_by_month(12),
-        unpaid=purch.unpaid_total(),
+        by_supplier=purch.report_by_supplier(current_user.id, date_from, date_to),
+        by_month=purch.report_by_month(12, user_id=current_user.id),
+        unpaid=purch.unpaid_total(current_user.id),
         date_from=date_from or "",
         date_to=date_to or "",
     )

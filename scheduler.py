@@ -45,7 +45,7 @@ def init_scheduler(app):
     _scheduler.add_job(
         func=lambda: _run_report(app, "week"),
         trigger="cron",
-        day_of_week="mon", hour=8, minute=15,
+        day_of_week="mon", hour=8, minute=25,
         id="weekly_report",
         replace_existing=True,
     )
@@ -54,7 +54,7 @@ def init_scheduler(app):
     _scheduler.add_job(
         func=lambda: _run_report(app, "month"),
         trigger="cron",
-        day=1, hour=8, minute=20,
+        day=1, hour=8, minute=30,
         id="monthly_report",
         replace_existing=True,
     )
@@ -65,6 +65,15 @@ def init_scheduler(app):
         trigger="interval",
         hours=1,
         id="demo_reset",
+        replace_existing=True,
+    )
+
+    # 08:12 — upozorenja o limitu paketa (80%)
+    _scheduler.add_job(
+        func=lambda: _run_package_limit_alerts(app),
+        trigger="cron",
+        hour=8, minute=12,
+        id="package_limit_alerts",
         replace_existing=True,
     )
 
@@ -111,9 +120,9 @@ def _digest_pending_orders():
         SELECT id, customer_name, status, created_at
         FROM orders
         WHERE status IN ('new', 'paid')
-          AND created_at <= CURRENT_TIMESTAMP - INTERVAL '%s days'
+          AND created_at <= CURRENT_TIMESTAMP - (%s || ' days')::interval
         ORDER BY created_at ASC
-    """, (days,))
+    """, (str(days),))
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
     if rows:
@@ -245,3 +254,168 @@ def _reset_demo(app):
             app.logger.info(f"Demo reset: {'OK' if ok else 'FAILED'}")
         except Exception as e:
             app.logger.error(f"Demo reset greška: {e}")
+
+# ==================== PRETPLATE — PODSETNIK ====================
+
+def _run_subscription_alerts(app):
+    """
+    Šalje podsetnike:
+    - korisniku 7 dana pre isteka
+    - adminu (ALERT_EMAIL) listu svih koji ističu
+    """
+    with app.app_context():
+        try:
+            from db_adapter import connect
+            from mailer import (send_subscription_expiring,
+                                send_subscription_expiring_admin)
+            from subscriptions import plan_label
+
+            conn = connect()
+            try:
+                # Pretplate koje ističu u narednih 7 dana
+                rows = conn.execute("""
+                    SELECT
+                        s.id, s.plan_name, s.end_date,
+                        u.email AS user_email,
+                        u.name AS user_name,
+                        (s.end_date - CURRENT_DATE) AS days_left
+                    FROM subscriptions s
+                    JOIN users u ON u.id = s.user_id
+                    WHERE s.status = 'active'
+                      AND s.end_date IS NOT NULL
+                      AND s.end_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+                    ORDER BY s.end_date ASC
+                """).fetchall()
+            finally:
+                conn.close()
+
+            expiring = []
+            for r in rows:
+                d = dict(r) if not isinstance(r, dict) else r
+                days_left = int(d["days_left"])
+                label = plan_label(d["plan_name"])
+
+                # Korisniku
+                send_subscription_expiring(
+                    to_email=d["user_email"],
+                    user_name=d["user_name"],
+                    plan_label=label,
+                    end_date=str(d["end_date"]),
+                    days_left=days_left,
+                )
+
+                expiring.append({
+                    "email": d["user_email"],
+                    "plan_label": label,
+                    "end_date": str(d["end_date"]),
+                    "days_left": days_left,
+                })
+
+            # Adminu — samo ako ima nešto
+            if expiring:
+                # Šalji jedan email adminu sa listom
+                for e in expiring:
+                    send_subscription_expiring_admin(
+                        user_email=e["email"],
+                        user_name="",
+                        plan_label=e["plan_label"],
+                        end_date=e["end_date"],
+                        days_left=e["days_left"],
+                    )
+
+            app.logger.info(f"Subscription alerts: {len(expiring)} pretplata ističe")
+        except Exception as e:
+            app.logger.error(f"Subscription alerts greška: {e}")
+
+# ==================== LIMIT PAKETA ====================
+
+def _run_package_limit_alerts(app):
+    """
+    Prolazi kroz sve aktivne pretplate i šalje upozorenje
+    korisnicima koji su prešli 80% limita paketa.
+    """
+    with app.app_context():
+        try:
+            from subscriptions import all_limit_statuses
+            from mailer import send_package_limit_warning
+
+            statuses = all_limit_statuses()
+            sent = 0
+
+            for s in statuses:
+                # Proizvodi
+                if s["warn_products"] and s["limits"]["max_products"]:
+                    send_package_limit_warning(
+                        to_email=s["user_email"],
+                        user_name=s["user_name"],
+                        plan_label=s["plan_label"],
+                        resource="proizvoda",
+                        current=s["usage"]["products_added"],
+                        max_value=s["limits"]["max_products"],
+                        pct=s["pct"]["products"],
+                    )
+                    sent += 1
+
+                # Narudžbine
+                if s["warn_orders"] and s["limits"]["max_orders_month"]:
+                    send_package_limit_warning(
+                        to_email=s["user_email"],
+                        user_name=s["user_name"],
+                        plan_label=s["plan_label"],
+                        resource="narudžbina",
+                        current=s["usage"]["orders_created"],
+                        max_value=s["limits"]["max_orders_month"],
+                        pct=s["pct"]["orders"],
+                    )
+                    sent += 1
+
+            app.logger.info(f"Package limit alerts: {sent} upozorenja poslato")
+        except Exception as e:
+            app.logger.error(f"Package limit alerts greška: {e}")
+
+# ==================== ADMIN DNEVNI REPORT ====================
+
+def _run_admin_daily(app):
+    """Šalje dnevni admin report sa aktivnošću + pretplatama koje ističu."""
+    with app.app_context():
+        try:
+            from admin_analytics import kpi_overview, top_features
+            from mailer import send_admin_daily_report
+            from db_adapter import connect
+
+            kpi = kpi_overview(30)
+            features = top_features(30, limit=10)
+
+            # Pretplate koje ističu u narednih 7 dana
+            conn = connect()
+            try:
+                rows = conn.execute("""
+                    SELECT
+                        s.plan_name, s.end_date,
+                        u.email,
+                        (s.end_date - CURRENT_DATE) AS days_left
+                    FROM subscriptions s
+                    JOIN users u ON u.id = s.user_id
+                    WHERE s.status = 'active'
+                      AND s.end_date IS NOT NULL
+                      AND s.end_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+                    ORDER BY s.end_date ASC
+                """).fetchall()
+            finally:
+                conn.close()
+
+            from subscriptions import plan_label
+            expiring = []
+            for r in rows:
+                d = dict(r) if not isinstance(r, dict) else r
+                expiring.append({
+                    "email": d["email"],
+                    "plan_label": plan_label(d["plan_name"]),
+                    "end_date": str(d["end_date"]),
+                    "days_left": int(d["days_left"]),
+                })
+
+            send_admin_daily_report(kpi, logins=None, features=features, expiring=expiring)
+            app.logger.info(f"Admin daily report: poslat")
+        except Exception as e:
+            app.logger.error(f"Admin daily greška: {e}")

@@ -88,7 +88,7 @@
       </a>
       {% endif %}
       <a href="{{ url_for('pricing_view') }}"
-        class="sidebar__link {{ 'active' if nav in ('pricing_view','pricing_history','pricing_bulk','pricing_presets') }}">
+        class="sidebar__link {{ 'active' if nav in ('pricing_view','pricing_bulk') }}">
         <span class="sidebar__icon">💱</span> {{ t("pricing") }}
       </a>
       <a href="{{ url_for('pricing_history') }}"
@@ -114,6 +114,14 @@
       </a>
       {% if current_user.is_authenticated and current_user.role == 'admin' %}
       <div class="sidebar__group">{{ t("group_admin") }}</div>
+      <a href="{{ url_for('admin_dashboard') }}"
+         class="sidebar__link {{ 'active' if nav == 'admin_dashboard' }}">
+        <span class="sidebar__icon">📊</span> Admin Dashboard
+      </a>
+      <a href="{{ url_for('admin_subscriptions') }}"
+         class="sidebar__link {{ 'active' if nav.startswith('admin_subscription') }}">
+        <span class="sidebar__icon">💳</span> Pretplate
+      </a>
       <a href="{{ url_for('admin_users') }}"
          class="sidebar__link {{ 'active' if nav.startswith('admin_user') }}">
         <span class="sidebar__icon">👥</span> {{ t("users") }}

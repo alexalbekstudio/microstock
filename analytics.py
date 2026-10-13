@@ -1,8 +1,8 @@
-# analytics.py (PostgreSQL verzija - 2026-10-04)
+# analytics.py (PostgreSQL verzija — multi-tenant)
 from db_adapter import connect
 
 
-def overview(days=None):
+def overview(user_id, days=None):
     sql = """
         SELECT
             COALESCE(SUM(revenue), 0)       AS revenue,
@@ -13,10 +13,11 @@ def overview(days=None):
             COUNT(DISTINCT order_id)        AS orders,
             COALESCE(SUM(qty), 0)           AS units
         FROM v_order_profit
+        WHERE user_id = %s
     """
-    params = []
+    params = [user_id]
     if days:
-        sql += " WHERE order_date >= now() - (%s || ' days')::interval"
+        sql += " AND order_date >= now() - (%s || ' days')::interval"
         params.append(str(days))
 
     conn = connect()
@@ -37,7 +38,7 @@ def overview(days=None):
     }
 
 
-def by_channel(days=None):
+def by_channel(user_id, days=None):
     sql = """
         SELECT
             channel_id, channel_name, fee_percent,
@@ -46,10 +47,11 @@ def by_channel(days=None):
             SUM(profit) AS profit, SUM(qty) AS units,
             COUNT(DISTINCT order_id) AS orders
         FROM v_order_profit
+        WHERE user_id = %s
     """
-    params = []
+    params = [user_id]
     if days:
-        sql += " WHERE order_date >= now() - (%s || ' days')::interval"
+        sql += " AND order_date >= now() - (%s || ' days')::interval"
         params.append(str(days))
     sql += " GROUP BY channel_id, channel_name, fee_percent ORDER BY profit DESC"
 
@@ -76,17 +78,18 @@ def by_channel(days=None):
     return result
 
 
-def by_product(days=None, limit=20):
+def by_product(user_id, days=None, limit=20):
     sql = """
         SELECT product_id, sku, product_name,
             SUM(qty) AS units, SUM(revenue) AS revenue,
             SUM(channel_fee) AS fees, SUM(product_cost) AS cost,
             SUM(shipping_cost) AS shipping, SUM(profit) AS profit
         FROM v_order_profit
+        WHERE user_id = %s
     """
-    params = []
+    params = [user_id]
     if days:
-        sql += " WHERE order_date >= now() - (%s || ' days')::interval"
+        sql += " AND order_date >= now() - (%s || ' days')::interval"
         params.append(str(days))
     sql += " GROUP BY product_id, sku, product_name ORDER BY profit DESC LIMIT %s"
     params.append(limit)
@@ -113,7 +116,7 @@ def by_product(days=None, limit=20):
     return result
 
 
-def trend(days=30):
+def trend(user_id, days=30):
     conn = connect()
     rows = conn.execute("""
         SELECT
@@ -121,10 +124,11 @@ def trend(days=30):
             SUM(revenue) AS revenue,
             SUM(profit)  AS profit
         FROM v_order_profit
-        WHERE order_date >= now() - (%s || ' days')::interval
+        WHERE user_id = %s
+          AND order_date >= now() - (%s || ' days')::interval
         GROUP BY order_date::date
         ORDER BY day
-    """, (str(days),)).fetchall()
+    """, (user_id, str(days))).fetchall()
     conn.close()
     return [{
         "day":     str(r["day"]),
@@ -133,15 +137,16 @@ def trend(days=30):
     } for r in rows]
 
 
-def loss_makers(days=None):
+def loss_makers(user_id, days=None):
     sql = """
         SELECT product_id, sku, product_name,
             SUM(qty) AS units, SUM(revenue) AS revenue, SUM(profit) AS profit
         FROM v_order_profit
+        WHERE user_id = %s
     """
-    params = []
+    params = [user_id]
     if days:
-        sql += " WHERE order_date >= now() - (%s || ' days')::interval"
+        sql += " AND order_date >= now() - (%s || ' days')::interval"
         params.append(str(days))
     sql += " GROUP BY product_id, sku, product_name HAVING SUM(profit) < 0 ORDER BY profit ASC"
 
@@ -158,7 +163,7 @@ def loss_makers(days=None):
     } for r in rows]
 
 
-def top_customers(days=None, limit=10):
+def top_customers(user_id, days=None, limit=10):
     sql = """
         SELECT o.customer_name,
             COUNT(DISTINCT o.id) AS orders,
@@ -166,8 +171,9 @@ def top_customers(days=None, limit=10):
         FROM orders o
         JOIN order_items oi ON oi.order_id = o.id
         WHERE o.status != 'cancelled'
+          AND o.user_id = %s
     """
-    params = []
+    params = [user_id]
     if days:
         sql += " AND o.created_at >= now() - (%s || ' days')::interval"
         params.append(str(days))

@@ -27,26 +27,42 @@ SIGNS = {
 }
 
 
-def get_current_capital():
-    """Vraća trenutno stanje kapitala (jedan broj)."""
+def get_current_capital(user_id=None):
+    """Vraća trenutno stanje kapitala za korisnika."""
     conn = connect()
-    row = conn.execute(
-        "SELECT COALESCE(MAX(capital), 0) AS c FROM users WHERE role='admin'"
-    ).fetchone()
+    if user_id is not None:
+        row = conn.execute(
+            "SELECT COALESCE(capital, 0) AS c FROM users WHERE id=%s",
+            (user_id,)
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT COALESCE(MAX(capital), 0) AS c FROM users WHERE role='admin'"
+        ).fetchone()
     conn.close()
     return float(row["c"]) if row else 0.0
 
 
-def list_transactions(limit=50):
-    """Vraća poslednjih N transakcija (sa formatiranim datumom)."""
+def list_transactions(user_id=None, limit=50):
+    """Vraća poslednjih N transakcija."""
     conn = connect()
-    rows = conn.execute("""
-        SELECT ct.*, u.email AS user_email, u.name AS user_name
-        FROM capital_transactions ct
-        LEFT JOIN users u ON u.id = ct.user_id
-        ORDER BY ct.created_at DESC, ct.id DESC
-        LIMIT %s
-    """, (limit,)).fetchall()
+    if user_id is not None:
+        rows = conn.execute("""
+            SELECT ct.*, u.email AS user_email, u.name AS user_name
+            FROM capital_transactions ct
+            LEFT JOIN users u ON u.id = ct.user_id
+            WHERE ct.user_id = %s
+            ORDER BY ct.created_at DESC, ct.id DESC
+            LIMIT %s
+        """, (user_id, limit)).fetchall()
+    else:
+        rows = conn.execute("""
+            SELECT ct.*, u.email AS user_email, u.name AS user_name
+            FROM capital_transactions ct
+            LEFT JOIN users u ON u.id = ct.user_id
+            ORDER BY ct.created_at DESC, ct.id DESC
+            LIMIT %s
+        """, (limit,)).fetchall()
     conn.close()
 
     result = []
@@ -115,20 +131,26 @@ def add_transaction(user_id, tx_type, amount, note=""):
         conn.close()
 
 
-def get_summary(days=30):
-    """
-    Vraća sumu po tipu za poslednjih N dana + trenutno stanje.
-    Za dashboard KPI.
-    """
+def get_summary(user_id=None, days=30):
+    """Vraća sumu po tipu za poslednjih N dana + trenutno stanje."""
     conn = connect()
-    current = get_current_capital()
+    current = get_current_capital(user_id)
 
-    rows = conn.execute("""
-        SELECT type, COALESCE(SUM(amount), 0) AS total
-        FROM capital_transactions
-        WHERE created_at >= CURRENT_DATE - INTERVAL '%s days'
-        GROUP BY type
-    """, (days,)).fetchall()
+    if user_id is not None:
+        rows = conn.execute("""
+            SELECT type, COALESCE(SUM(amount), 0) AS total
+            FROM capital_transactions
+            WHERE user_id = %s
+              AND created_at >= CURRENT_DATE - (%s || ' days')::interval
+            GROUP BY type
+        """, (user_id, str(days))).fetchall()
+    else:
+        rows = conn.execute("""
+            SELECT type, COALESCE(SUM(amount), 0) AS total
+            FROM capital_transactions
+            WHERE created_at >= CURRENT_DATE - (%s || ' days')::interval
+            GROUP BY type
+        """, (str(days),)).fetchall()
     conn.close()
 
     by_type = {r["type"]: float(r["total"]) for r in rows}

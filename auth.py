@@ -162,6 +162,12 @@ def login():
             )
             login_user(user, remember=True)
 
+            # Zabeleži login za Admin Dashboard
+            from tracking import record_login
+            record_login(user.id)
+
+            # Postavi jezik i valutu u sesiju
+
             # Postavi jezik i valutu u sesiju
             from flask import session
             session["lang"] = user.language
@@ -186,6 +192,10 @@ def login():
 @auth_bp.route("/logout")
 @login_required
 def logout():
+    # Zabeleži logout pre nego što current_user postane anoniman
+    from tracking import record_logout
+    record_logout(current_user.id)
+    
     logout_user()
     flash("Uspešno si se odjavio.", "ok")
     return redirect(url_for("auth.login"))

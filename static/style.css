@@ -368,7 +368,6 @@ h3 { font-size: 1.05rem; margin-top: 1.25rem; }
 .btn-row { display: flex; gap: .5rem; flex-wrap: wrap; }
 
 /* Legacy alias */
-.btn-primary   { @extend .btn; } /* fallback ispod */
 .btn-primary   { background: var(--primary); color: #fff; padding:.55rem 1rem; border-radius: var(--radius-sm); font-weight:600; display:inline-flex; align-items:center; gap:.45rem; text-decoration:none; border:1px solid transparent; cursor:pointer; font-size:.9rem; }
 .btn-primary:hover { background: var(--primary-dark); text-decoration:none; }
 .btn-secondary { background: var(--surface); color: var(--text); border:1px solid var(--border); padding:.55rem 1rem; border-radius:var(--radius-sm); font-weight:600; display:inline-flex; align-items:center; gap:.45rem; text-decoration:none; cursor:pointer; font-size:.9rem; }
@@ -1567,3 +1566,171 @@ input[type="checkbox"] {
 .badge--status-shipped   { background: #fef3c7; color: #92400e; }
 .badge--status-done      { background: #dcfce7; color: #166534; }
 .badge--status-cancelled { background: #e5e7eb; color: #4b5563; text-decoration: line-through; }
+
+/* ============================================================
+   PREVIEW (screenshots)
+   ============================================================ */
+
+.preview {
+  padding: 6rem 0;
+  background: var(--bg);
+}
+
+.preview__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.preview-card {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-card__browser {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px 12px 0 0;
+  padding: .6rem .8rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.browser-dots {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.browser-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.browser-dots span:nth-child(1) { background: #ff5f57; }
+.browser-dots span:nth-child(2) { background: #febc2e; }
+.browser-dots span:nth-child(3) { background: #28c840; }
+
+.browser-url {
+  flex: 1;
+  margin-left: .5rem;
+  background: #f1f5f9;
+  padding: .25rem .65rem;
+  border-radius: 6px;
+  font-size: .72rem;
+  color: var(--text-soft);
+  font-family: ui-monospace, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-card__content {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  padding: 0;
+  width: 100%;
+  height: 180px;                    /* ← FIKSNA VISINA */
+  position: relative;
+}
+
+.preview-card__content img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+
+.preview-card__caption {
+  margin-top: .85rem;
+  font-size: .85rem;
+  color: var(--text-soft);
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .preview__grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+  .preview-card__content {
+    height: 160px;
+  }
+}
+
+@media (max-width: 600px) {
+  .preview {
+    padding: 4rem 0;
+  }
+  .preview__grid {
+    grid-template-columns: 1fr;
+  }
+  .preview-card__content {
+    height: 200px;
+  }
+}
+
+/* ============================================================
+   VIDEO DEMO
+   ============================================================ */
+
+.video-demo {
+  padding: 5rem 0;
+  background: var(--bg-soft);
+  text-align: center;                /* centriraj sadržaj */
+}
+
+.video-wrapper {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  background: #000;
+  aspect-ratio: 16 / 9;
+  margin: 2rem auto;                 /* centriraj + vertikalna margina */
+  max-width: 1100px;                 /* ← povećano sa 900px */
+  width: 100%;
+}
+
+.video-wrapper iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.video-note {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: .95rem;
+  color: var(--text-soft);
+}
+
+.video-note a {
+  color: var(--indigo);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.video-note a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .video-wrapper {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .video-demo { padding: 3rem 0; }
+}

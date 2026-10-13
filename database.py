@@ -171,6 +171,51 @@ def _run_migrations(conn):
         """
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT
         """,
+
+                        # 14) MULTI-TENANCY: products.user_id
+        """
+        ALTER TABLE products
+        ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+        """,
+        """
+        UPDATE products SET user_id = 1 WHERE user_id IS NULL
+        """,
+
+        # 15) MULTI-TENANCY: orders.user_id
+        """
+        ALTER TABLE orders
+        ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+        """,
+        """
+        UPDATE orders SET user_id = 1 WHERE user_id IS NULL
+        """,
+
+        # 16) MULTI-TENANCY: suppliers.user_id
+        """
+        ALTER TABLE suppliers
+        ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+        """,
+        """
+        UPDATE suppliers SET user_id = 1 WHERE user_id IS NULL
+        """,
+
+        # 17) MULTI-TENANCY: purchase_invoices.user_id
+        """
+        ALTER TABLE purchase_invoices
+        ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+        """,
+        """
+        UPDATE purchase_invoices SET user_id = 1 WHERE user_id IS NULL
+        """,
+
+        # 18) MULTI-TENANCY: projects.user_id
+        """
+        ALTER TABLE projects
+        ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+        """,
+        """
+        UPDATE projects SET user_id = 1 WHERE user_id IS NULL
+        """,
     ]
 
     for sql in migrations:
