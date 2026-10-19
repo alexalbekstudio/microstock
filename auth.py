@@ -10,7 +10,7 @@ Podrazumevani kredencijali (PROMENI ODMAH posle prvog logina!):
 from functools import wraps
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
-                   flash, abort)
+                   flash, abort, session)
 from flask_login import (LoginManager, UserMixin, login_user, logout_user,
                          login_required, current_user)
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -42,22 +42,23 @@ login_manager.login_message_category = "err"
 @login_manager.user_loader
 def load_user(user_id):
     conn = connect()
-    row = conn.execute("SELECT * FROM users WHERE id=%s", (user_id,)).fetchone()
+    # Eksplicitno navodimo public.users
+    row = conn.execute("SELECT * FROM public.users WHERE id=%s", (user_id,)).fetchone()
     conn.close()
     if not row or not row["active"]:
         return None
     return User(
         row["id"], row["email"], row["name"], row["role"],
         language=row["language"] if "language" in row.keys() else "sr",
-        currency=row["currency"] if "currency" in row.keys() else "RSD",
-    )
+        currency=row["currency"] if "currency" in row.keys() else "RSD",)
 
 
 # ==================== POMOĆNE ====================
 
 def get_user_by_email(email):
     conn = connect()
-    row = conn.execute("SELECT * FROM users WHERE email=%s", (email,)).fetchone()
+    # Eksplicitno navodimo public.users
+    row = conn.execute("SELECT * FROM public.users WHERE LOWER(email)=%s", (email.lower().strip(),)).fetchone()
     conn.close()
     return row
 
@@ -137,6 +138,9 @@ auth_bp = Blueprint("auth", __name__)
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
+    # Čim se dođe na login, očisti demo režim da forma uvek gađa pravu bazu
+    session.pop("demo_mode", None)
+
     if current_user.is_authenticated:
         return redirect(url_for("index"))
 
@@ -167,9 +171,6 @@ def login():
             record_login(user.id)
 
             # Postavi jezik i valutu u sesiju
-
-            # Postavi jezik i valutu u sesiju
-            from flask import session
             session["lang"] = user.language
             session["currency"] = user.currency
 
@@ -190,13 +191,15 @@ def login():
 
 
 @auth_bp.route("/logout")
-@login_required
 def logout():
-    # Zabeleži logout pre nego što current_user postane anoniman
-    from tracking import record_logout
-    record_logout(current_user.id)
-    
-    logout_user()
+    # Uvek očisti demo režim pri odjavi
+    session.pop("demo_mode", None)
+
+    if current_user.is_authenticated:
+        from tracking import record_logout
+        record_logout(current_user.id)
+        logout_user()
+
     flash("Uspešno si se odjavio.", "ok")
     return redirect(url_for("auth.login"))
 

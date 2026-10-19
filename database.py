@@ -72,7 +72,7 @@ def _run_migrations(conn):
         ON CONFLICT (name) DO NOTHING
         """,
 
-                # 5) password_resets (zaboravljena šifra)
+        # 5) password_resets (zaboravljena šifra)
         """
         CREATE TABLE IF NOT EXISTS password_resets (
             id          SERIAL PRIMARY KEY,
@@ -90,7 +90,7 @@ def _run_migrations(conn):
         ON password_resets(token)
         """,
 
-                # 8) suppliers — dobavljači
+        # 8) suppliers — dobavljači
         """
         CREATE TABLE IF NOT EXISTS suppliers (
             id                SERIAL PRIMARY KEY,
@@ -111,7 +111,7 @@ def _run_migrations(conn):
         )
         """,
 
-                # 10) purchase_invoices — računi nabavke
+        # 10) purchase_invoices — računi nabavke
         """
         CREATE TABLE IF NOT EXISTS purchase_invoices (
             id              SERIAL PRIMARY KEY,
@@ -167,12 +167,12 @@ def _run_migrations(conn):
         ON suppliers(name)
         """,
 
-                # 13) orders.customer_phone — za WhatsApp deep links
+        # 13) orders.customer_phone — za WhatsApp deep links
         """
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT
         """,
 
-                        # 14) MULTI-TENANCY: products.user_id
+        # 14) MULTI-TENANCY: products.user_id
         """
         ALTER TABLE products
         ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
@@ -215,6 +215,48 @@ def _run_migrations(conn):
         """,
         """
         UPDATE projects SET user_id = 1 WHERE user_id IS NULL
+        """,
+
+        # 19) business_expenses — operativni i fiksni režijski troškovi biznisa
+        """
+        CREATE TABLE IF NOT EXISTS business_expenses (
+            id          SERIAL PRIMARY KEY,
+            user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            title       TEXT NOT NULL,
+            category    TEXT NOT NULL DEFAULT 'Ostalo',
+            amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
+            expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+            note        TEXT,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_business_expenses_user_date
+        ON business_expenses(user_id, expense_date DESC)
+        """,
+
+        # 20) Oznaka za repromaterijal / sirovinu i mernu jedinicu u tabeli products
+        """
+        ALTER TABLE products
+        ADD COLUMN IF NOT EXISTS is_material INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'kom'
+        """,
+
+        # 21) product_recipes — tabela koja definise sastavnicu (BOM)
+        """
+        CREATE TABLE IF NOT EXISTS product_recipes (
+            id                  SERIAL PRIMARY KEY,
+            parent_product_id   INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+            material_product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+            qty_needed          NUMERIC(12,4) NOT NULL DEFAULT 1,
+            created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT uq_parent_material UNIQUE(parent_product_id, material_product_id)
+        )
+        """,
+
+        """
+        CREATE INDEX IF NOT EXISTS idx_recipes_parent
+        ON product_recipes(parent_product_id)
         """,
     ]
 

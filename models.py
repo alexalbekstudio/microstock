@@ -4,7 +4,7 @@ import json
 
 # ==================== PROIZVODI ====================
 
-def list_products(user_id=None, search=None, only_low=False, include_inactive=False):
+def list_products(user_id=None, search=None, only_low=False, include_inactive=False, filter_type=None):
     sql = "SELECT * FROM products WHERE 1=1"
     params = []
     if user_id is not None:
@@ -12,6 +12,10 @@ def list_products(user_id=None, search=None, only_low=False, include_inactive=Fa
         params.append(user_id)
     if not include_inactive:
         sql += " AND active = 1"
+    if filter_type == "materials":
+        sql += " AND is_material = 1"
+    elif filter_type == "finished":
+        sql += " AND (is_material = 0 OR is_material IS NULL)"
     if search:
         sql += " AND (name ILIKE %s OR sku ILIKE %s)"
         params += [f"%{search}%", f"%{search}%"]
@@ -23,14 +27,17 @@ def list_products(user_id=None, search=None, only_low=False, include_inactive=Fa
     conn.close()
     return rows
 
-def add_product(user_id, sku, name, price, cost, stock, low_stock_at=3):
+def add_product(user_id, sku, name, price, cost, stock, low_stock_at=3, is_material=0, unit='kom'):
     conn = connect()
     conn.execute(
-        "INSERT INTO products (user_id, sku, name, price, cost, stock, low_stock_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-        (user_id, sku, name, price, cost, stock, low_stock_at)
+        """
+        INSERT INTO products (user_id, sku, name, price, cost, stock, low_stock_at, is_material, unit)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (user_id, sku, name, price, cost, stock, low_stock_at, int(is_material), unit)
     )
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
 def update_product(pid, sku, name, price, cost, stock, low_stock_at, user_id=None):
     """Ako je user_id zadat, menja samo ako proizvod pripada tom korisniku."""
@@ -139,10 +146,20 @@ def create_order_tx(conn, user_id, customer_name, channel_id, items, note="",
             VALUES (%s,%s,%s,%s)
         """, (order_id, it["product_id"], it["qty"], prod["price"]))
 
+        # 1. Skidanje zaliha samog gotovog proizvoda
         conn.execute(
             "UPDATE products SET stock = stock - %s WHERE id = %s",
             (it["qty"], it["product_id"])
         )
+
+        # 2. Automatsko skidanje vezanih sirovina iz sastavnice (BOM)
+        conn.execute("""
+            UPDATE products p
+            SET stock = p.stock - (r.qty_needed * %s)
+            FROM product_recipes r
+            WHERE r.parent_product_id = %s
+              AND p.id = r.material_product_id
+        """, (it["qty"], it["product_id"]))
 
     return order_id, False
 
@@ -313,3 +330,105 @@ def log_sync(source, external_id, order_id, payload, status, message=""):
     """, (source, external_id, order_id, json.dumps(payload, ensure_ascii=False),
           status, message))
     conn.commit(); conn.close()
+
+
+def add_recipe_item(parent_product_id, material_product_id, qty_needed):
+    """Dodaje ili ažurira sirovinu u recepturi gotovog proizvoda."""
+    conn = connect()
+    conn.execute(
+        """
+        INSERT INTO product_recipes (parent_product_id, material_product_id, qty_needed)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (parent_product_id, material_product_id)
+        DO UPDATE SET qty_needed = EXCLUDED.qty_needed
+    """,
+        (parent_product_id, material_product_id, float(qty_needed)),
+    )
+    conn.commit()
+
+    # Automatski ažuriramo nabavnu cenu (cost) gotovog proizvoda na osnovu zbira sirovina
+    _recalc_parent_cost(conn, parent_product_id)
+    conn.close()
+
+
+def remove_recipe_item(recipe_item_id, parent_product_id):
+    """Uklanja sirovinu iz recepture."""
+    conn = connect()
+    conn.execute("DELETE FROM product_recipes WHERE id = %s", (recipe_item_id,))
+    conn.commit()
+    _recalc_parent_cost(conn, parent_product_id)
+    conn.close()
+
+
+def _recalc_parent_cost(conn, parent_product_id):
+    """Pomoćna funkcija: sabira troškove sirovina i postavlja cost gotovog artikla."""
+    row = conn.execute(
+        """
+        SELECT COALESCE(SUM(r.qty_needed * p.cost), 0) AS calculated_cost
+        FROM product_recipes r
+        JOIN products p ON p.id = r.material_product_id
+        WHERE r.parent_product_id = %s
+    """,
+        (parent_product_id,),
+    ).fetchone()
+
+    new_cost = float(row["calculated_cost"] or 0)
+    conn.execute(
+        "UPDATE products SET cost = %s WHERE id = %s",
+        (new_cost, parent_product_id),
+    )
+    conn.commit()
+
+
+def get_recipe(parent_product_id, user_id=None):
+    """Vraća listu sirovina koje čine gotov proizvod."""
+    conn = connect()
+    try:
+        sql = """
+            SELECT r.id AS recipe_item_id,
+                   r.qty_needed,
+                   p.id AS material_id,
+                   p.sku,
+                   p.name AS material_name,
+                   COALESCE(p.cost, 0) AS unit_cost,
+                   COALESCE(p.stock, 0) AS current_stock,
+                   COALESCE(p.unit, 'kom') AS unit,
+                   (r.qty_needed * COALESCE(p.cost, 0)) AS total_material_cost
+            FROM product_recipes r
+            JOIN products p ON p.id = r.material_product_id
+            WHERE r.parent_product_id = %s
+            ORDER BY p.name ASC
+        """
+        rows = conn.execute(sql, (parent_product_id,)).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["total_material_cost"] = round(float(d.get("total_material_cost") or 0), 2)
+            d["unit"] = "kom"
+            result.append(d)
+        return result
+    except Exception as e:
+        print(f"Greška u get_recipe: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def list_raw_materials(user_id):
+    """Vraća samo artikle koji su definisani kao repromaterijal/sirovina."""
+    conn = connect()
+    try:
+        sql = """
+            SELECT id, sku, name, COALESCE(cost, 0) AS cost, 
+                   COALESCE(stock, 0) AS stock, COALESCE(unit, 'kom') AS unit
+            FROM products
+            WHERE user_id = %s AND active = 1 AND is_material = 1
+            ORDER BY name ASC
+        """
+        rows = conn.execute(sql, (user_id,)).fetchall()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"Greška u list_raw_materials: {e}")
+        return []
+    finally:
+        conn.close()

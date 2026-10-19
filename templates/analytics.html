@@ -77,37 +77,53 @@
 </div>
 <div class="table-wrap">
   <table>
-    <thead>
-      <tr>
-        <th>{{ t("col_channel") }}</th>
-        <th class="num">{{ t("col_fee_percent") }}</th>
-        <th class="num">{{ t("col_revenue") }}</th>
-        <th class="num">{{ t("col_fees") }}</th>
-        <th class="num">{{ t("col_cost") }}</th>
-        <th class="num">{{ t("shipping") }}</th>
-        <th class="num">{{ t("kpi_profit") }}</th>
-        <th class="num">{{ t("col_margin") }}</th>
-        <th class="num">{{ t("col_units") }}</th>
-        <th class="num">{{ t("col_orders") }}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for c in channels %}
-      <tr class="{{ 'low' if c.profit < 0 else '' }}">
-        <td><b>{{ c.channel_name }}</b></td>
-        <td class="num">{{ c.fee_percent }}%</td>
-        <td class="num">{{ display_money(c.revenue) }}</td>
-        <td class="num">{{ display_money(c.fees) }}</td>
-        <td class="num">{{ display_money(c.cost) }}</td>
-        <td class="num">{{ display_money(c.shipping) }}</td>
-        <td class="num"><b>{{ display_money(c.profit) }}</b></td>
-        <td class="num">{{ c.margin }}%</td>
-        <td class="num">{{ c.units }}</td>
-        <td class="num">{{ c.orders }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <thead>
+    <tr>
+      <th>{{ t("col_channel") }}</th>
+      <th class="num">{{ t("col_fee_percent") }}</th>
+      <th class="num">{{ t("col_revenue") }}</th>
+      <th class="num">{{ t("col_fees") }}</th>
+      <th class="num">{{ t("col_cost") }}</th>
+      <th class="num">{{ t("shipping") }}</th>
+      
+      <!-- 1. NOVO ZAGLAVLJE: Ukupni rashodi -->
+      <th class="num">Ukupni troškovi</th>
+      
+      <th class="num">{{ t("kpi_profit") }} / Gubitak</th>
+      <th class="num">{{ t("col_margin") }}</th>
+      <th class="num">{{ t("col_units") }}</th>
+      <th class="num">{{ t("col_orders") }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in channels %}
+    <tr class="{{ 'low' if c.is_loss or c.profit < 0 else '' }}">
+      <td><b>{{ c.channel_name }}</b></td>
+      <td class="num">{{ c.fee_percent }}%</td>
+      <td class="num">{{ display_money(c.revenue) }}</td>
+      <td class="num">{{ display_money(c.fees) }}</td>
+      <td class="num">{{ display_money(c.cost) }}</td>
+      <td class="num">{{ display_money(c.shipping) }}</td>
+      
+      <!-- 2. NOVO POLJE: Prikaz zbira svih rashoda -->
+      <td class="num" style="color: #64748b;">{{ display_money(c.total_expense) }}</td>
+      
+      <!-- 3. IZMENJENO: Jasno isticanje Dobitka (zeleno) ili Gubitka (crveno) -->
+      <td class="num">
+        {% if c.is_loss %}
+          <b style="color: #ef4444;">-{{ display_money(c.loss_amount) }}</b>
+        {% else %}
+          <b style="color: #10b981;">+{{ display_money(c.profit) }}</b>
+        {% endif %}
+      </td>
+
+      <td class="num">{{ c.margin }}%</td>
+      <td class="num">{{ c.units }}</td>
+      <td class="num">{{ c.orders }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
 </div>
 {% else %}
 <p class="empty">{{ t("no_data_orders") }}</p>

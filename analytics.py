@@ -61,19 +61,34 @@ def by_channel(user_id, days=None):
     result = []
     for r in rows:
         rev = float(r["revenue"] or 0)
-        margin = (float(r["profit"] or 0) / rev * 100) if rev > 0 else 0
+        fees = float(r["fees"] or 0)
+        cost = float(r["cost"] or 0)
+        shipping = float(r["shipping"] or 0)
+        profit = float(r["profit"] or 0)
+        
+        # Ukupni rashodi kanala (trošak robe + dostava + provizije)
+        total_expense = cost + shipping + fees
+        margin = (profit / rev * 100) if rev > 0 else 0
+        
+        # Detekcija gubitka
+        is_loss = profit < 0
+        loss_amount = abs(profit) if is_loss else 0.0
+
         result.append({
-            "channel_id":   r["channel_id"],
-            "channel_name": r["channel_name"],
-            "fee_percent":  float(r["fee_percent"] or 0),
-            "revenue":      round(rev, 2),
-            "fees":         round(float(r["fees"] or 0), 2),
-            "cost":         round(float(r["cost"] or 0), 2),
-            "shipping":     round(float(r["shipping"] or 0), 2),
-            "profit":       round(float(r["profit"] or 0), 2),
-            "margin":       round(margin, 1),
-            "units":        r["units"],
-            "orders":       r["orders"],
+            "channel_id":      r["channel_id"],
+            "channel_name":    r["channel_name"],
+            "fee_percent":     float(r["fee_percent"] or 0),
+            "revenue":         round(rev, 2),
+            "fees":            round(fees, 2),
+            "cost":            round(cost, 2),
+            "shipping":        round(shipping, 2),
+            "total_expense":   round(total_expense, 2),
+            "profit":          round(profit, 2),
+            "is_loss":         is_loss,
+            "loss_amount":     round(loss_amount, 2),
+            "margin":          round(margin, 1),
+            "units":           r["units"],
+            "orders":          r["orders"],
         })
     return result
 

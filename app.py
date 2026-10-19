@@ -7,6 +7,7 @@ import csv
 import io
 import json
 import os
+import expenses as exp_mod
 
 from datetime import datetime
 
@@ -381,14 +382,27 @@ def index():
 @login_required
 @role_required(*ALL_ROLES)
 def products():
-    search   = request.args.get("q", "").strip()
+    search = request.args.get("q", "").strip()
     only_low = request.args.get("low") == "1"
     show_all = request.args.get("all") == "1"
+    filter_type = request.args.get("type", "finished")  # "finished", "materials" ili "all"
+
+    prods = models.list_products(
+        user_id=current_user.id,
+        search=search,
+        only_low=only_low,
+        include_inactive=show_all,
+        filter_type=filter_type
+    )
+
     return render_template(
         "products.html",
-        products=models.list_products(current_user.id, search, only_low, include_inactive=show_all),
+        products=prods,
         low=models.low_stock_products(current_user.id),
-        search=search, only_low=only_low, show_all=show_all
+        search=search,
+        only_low=only_low,
+        show_all=show_all,
+        filter_type=filter_type
     )
 
 
@@ -396,6 +410,9 @@ def products():
 @login_required
 @role_required(*EDIT_ROLES)
 def add_product():
+    is_material = int(request.form.get("is_material") or 0)
+    unit = request.form.get("unit") or "kom"
+
     try:
         models.add_product(
             user_id=current_user.id,
@@ -403,8 +420,10 @@ def add_product():
             name=request.form["name"].strip(),
             price=float(request.form["price"]),
             cost=float(request.form.get("cost") or 0),
-            stock=int(request.form.get("stock") or 0),
-            low_stock_at=int(request.form.get("low_stock_at") or 3),
+            stock=float(request.form.get("stock") or 0),
+            low_stock_at=float(request.form.get("low_stock_at") or 3),
+            is_material=is_material,
+            unit=unit
         )
         flash("Proizvod dodat.", "ok")
                 # Tracking
@@ -434,8 +453,46 @@ def edit_product(pid):
         )
         flash("Proizvod sačuvan.", "ok")
         return redirect(url_for("products"))
-    return render_template("product_edit.html", p=p)
+    
+    recipe = models.get_recipe(pid, user_id=current_user.id)
+    materials = models.list_raw_materials(user_id=current_user.id)
+    return render_template("product_edit.html", p=p, recipe=recipe, materials=materials)
 
+# ==================== SASTAVNICA / RECEPTURA (BOM) ====================
+
+@app.route("/products/<int:pid>/recipe/add", methods=["POST"])
+@login_required
+@role_required(*EDIT_ROLES)
+def product_recipe_add(pid):
+    """Dodaje sirovinu u recepturu gotovog proizvoda i ažurira nabavnu cijenu (cost)."""
+    material_id = request.form.get("material_id", type=int)
+    qty_needed = request.form.get("qty_needed", type=float)
+
+    if not material_id or not qty_needed or qty_needed <= 0:
+        flash("Izaberite ispravnu sirovinu i količinu veću od 0.", "err")
+        return redirect(url_for("edit_product", pid=pid))
+
+    try:
+        models.add_recipe_item(parent_product_id=pid, material_product_id=material_id, qty_needed=qty_needed)
+        flash("Sirovina uspješno dodana u recepturu. Nabavna cijena gotovog proizvoda je ažurirana.", "ok")
+    except Exception as e:
+        flash(f"Greška pri dodavanju sirovine: {e}", "err")
+
+    return redirect(url_for("edit_product", pid=pid))
+
+
+@app.route("/products/<int:pid>/recipe/<int:recipe_item_id>/delete", methods=["POST"])
+@login_required
+@role_required(*EDIT_ROLES)
+def product_recipe_delete(pid, recipe_item_id):
+    """Uklanja sirovinu iz recepture."""
+    try:
+        models.remove_recipe_item(recipe_item_id=recipe_item_id, parent_product_id=pid)
+        flash("Sirovina uklonjena iz recepture.", "ok")
+    except Exception as e:
+        flash(f"Greška pri brisanju: {e}", "err")
+
+    return redirect(url_for("edit_product", pid=pid))
 
 @app.route("/products/<int:pid>/delete", methods=["POST"])
 @login_required
@@ -1147,6 +1204,88 @@ def product_qr_png(pid):
     buf.seek(0)
 
     return send_file(buf, mimetype="image/png", download_name=f"qr-{p['sku']}.png")
+
+@app.route("/products/<int:pid>/labels.pdf")
+@login_required
+@role_required(*ALL_ROLES)
+def product_labels_pdf(pid):
+    """Generiše PDF tabak sa nalepnicama za izabrani proizvod."""
+    p = models.get_product(pid, user_id=current_user.id)
+    if not p:
+        abort(404)
+
+    count = request.args.get("count", default=24, type=int)
+
+    from pdf import generate_product_labels_pdf
+
+    pdf_bytes = generate_product_labels_pdf(p, count=count, currency="din")
+
+    filename = f"nalepnice-{p['sku']}.pdf"
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=filename,
+    )
+
+import expenses as exp_mod
+
+# ==================== REŽIJSKI TROŠKOVI ====================
+
+
+@app.route("/expenses", methods=["GET", "POST"])
+@login_required
+@role_required(*ALL_ROLES)
+def expenses_view():
+  days = request.args.get("days", type=int) or 30
+
+  if request.method == "POST":
+    if current_user.role not in EDIT_ROLES:
+      flash("Nemate dozvolu za dodavanje troškova.", "err")
+      return redirect(url_for("expenses_view"))
+
+    title = request.form.get("title", "").strip()
+    category = request.form.get("category", "Ostalo").strip()
+    amount = request.form.get("amount", type=float) or 0
+    expense_date = request.form.get("expense_date") or None
+    note = request.form.get("note", "").strip()
+
+    if not title or amount <= 0:
+      flash("Naziv i validan iznos troška su obavezni.", "err")
+    else:
+      exp_mod.add_expense(
+          current_user.id, title, category, amount, expense_date, note
+      )
+      flash("Trošak uspešno evidentiran.", "ok")
+    return redirect(url_for("expenses_view", days=days))
+
+  items = exp_mod.list_expenses(current_user.id, days=days)
+  total = exp_mod.total_expenses(current_user.id, days=days)
+
+  # Povezivanje sa prodajom radi uvida u neto dobit
+  import analytics
+
+  kpi = analytics.overview(current_user.id, days=days)
+  gross_profit = kpi.get("profit", 0.0)
+  net_business_profit = gross_profit - total
+
+  return render_template(
+      "expenses.html",
+      expenses=items,
+      total_expenses=total,
+      gross_profit=gross_profit,
+      net_profit=net_business_profit,
+      days=days,
+  )
+
+
+@app.route("/expenses/<int:eid>/delete", methods=["POST"])
+@login_required
+@role_required(*EDIT_ROLES)
+def expense_delete_route(eid):
+  exp_mod.delete_expense(eid, current_user.id)
+  flash("Trošak obrisan.", "ok")
+  return redirect(request.referrer or url_for("expenses_view"))
 
 # ==================== ANALITIKA (ALAT #2) ====================
 

@@ -43,3 +43,33 @@ docs/*.md
 static/docs/*.png
 static/docs/*.jpeg
 static/docs/*.html
+
+# Privremeni test i fix fajlovi
+fix_view.py
+fix_demo_tables.py
+test_auth.py
+check_user.py
+set_password.py
+
+# Video fajlovi (reklame i renderi)
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+
+# Audio fajlovi (glasovi i voiceoveri)
+*.mp3
+*.wav
+*.aac
+*.ogg
+*.m4a
+*.flac
+
+# Direktorijumi sa medijskim materijalima (ako ih imate u posebnim folderima)
+reklame/
+video/
+videos/
+audio/
+voices/
+glasovi/

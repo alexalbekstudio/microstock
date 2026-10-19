@@ -8,6 +8,15 @@
   <div class="page-header__actions">
     <a href="/orders" class="btn btn--secondary">← {{ t("back") }}</a>
     <a href="/invoice/{{ order.id }}" class="btn btn--primary">🧾 {{ t("invoice") }}</a>
+    
+    <!-- Dugme za kopiranje podataka za kurira -->
+    <button type="button" class="btn btn--secondary" onclick="kopirajZaKurira()" style="cursor: pointer;">
+      📋 Kopiraj za kurira
+    </button>
+    <span id="kopirano-poruka" style="display: none; color: #10b981; font-weight: bold; align-self: center; font-size: 13px;">
+      ✓ Kopirano!
+    </span>
+
     {% if order.customer_phone %}
       <a href="https://wa.me/{{ order.customer_phone|replace('+', '')|replace(' ', '')|replace('-', '') }}?text={{ (t('wa_message_default') ~ ' #' ~ order.id)|urlencode }}"
          target="_blank"
@@ -25,11 +34,11 @@
     <div class="grid-form" style="box-shadow:none; padding:0; background:transparent; border:none;">
       <div class="form-row">
         <label>{{ t("col_customer") }}</label>
-        <input name="customer_name" value="{{ order.customer_name }}" required>
+        <input name="customer_name" id="cust_name" value="{{ order.customer_name }}" required>
       </div>
       <div class="form-row">
         <label>{{ t("customer_phone") }}</label>
-        <input name="customer_phone" value="{{ order.customer_phone or '' }}"
+        <input name="customer_phone" id="cust_phone" value="{{ order.customer_phone or '' }}"
                placeholder="+381601234567">
       </div>
       <div class="form-row">
@@ -50,7 +59,7 @@
       </div>
       <div class="form-row">
         <label>{{ t("shipping_method") }}</label>
-        <input name="shipping_method" value="{{ order.shipping_method or '' }}"
+        <input name="shipping_method" id="ship_method" value="{{ order.shipping_method or '' }}"
                placeholder="{{ t('shipping_method_ph') }}">
       </div>
       <div class="form-row">
@@ -61,7 +70,7 @@
     </div>
     <div class="form-row">
       <label>{{ t("note") }}</label>
-      <input name="note" value="{{ order.note or '' }}" placeholder="{{ t('note') }}">
+      <input name="note" id="order_note" value="{{ order.note or '' }}" placeholder="{{ t('note') }}">
     </div>
     {% if current_user.role in ('admin', 'manager') %}
       <button type="submit" class="btn btn--primary">💾 {{ t("save") }}</button>
@@ -87,5 +96,33 @@
     </tbody>
   </table>
 </div>
+
+<script>
+function kopirajZaKurira() {
+  const kupac = document.getElementById("cust_name").value || "{{ order.customer_name }}";
+  const telefon = document.getElementById("cust_phone").value || "{{ order.customer_phone or '' }}";
+  const napomena = document.getElementById("order_note").value || "{{ order.note or '' }}";
+  const sluzba = document.getElementById("ship_method").value || "{{ order.shipping_method or '' }}";
+  const brojNarudzbine = "#{{ order.id }}";
+
+  let tekstZaKurira = `Primalac: ${kupac}\nTelefon: ${telefon}\nBroj narudžbine: ${brojNarudzbine}`;
+  if (sluzba) {
+    tekstZaKurira += `\nKurir/Dostava: ${sluzba}`;
+  }
+  if (napomena) {
+    tekstZaKurira += `\nNapomena: ${napomena}`;
+  }
+
+  navigator.clipboard.writeText(tekstZaKurira).then(function() {
+    const poruka = document.getElementById("kopirano-poruka");
+    poruka.style.display = "inline";
+    setTimeout(() => {
+      poruka.style.display = "none";
+    }, 2500);
+  }).catch(function(err) {
+    alert("Greška pri kopiranju: " + err);
+  });
+}
+</script>
 
 {% endblock %}

@@ -10,27 +10,68 @@
   </div>
 </div>
 
-{# ============ FILTER ============ #}
-<form method="get" class="filter-form">
+<!-- TABOVI ZA RAZDVAJANJE PROIZVODA I SIROVINA -->
+<div style="display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">
+  <a href="/products?type=finished" 
+     style="padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; 
+            background: {{ '#3b82f6' if filter_type == 'finished' else '#f1f5f9' }}; 
+            color: {{ '#ffffff' if filter_type == 'finished' else '#475569' }};">
+    📦 Gotovi proizvodi za prodaju
+  </a>
+  <a href="/products?type=materials" 
+     style="padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; 
+            background: {{ '#3b82f6' if filter_type == 'materials' else '#f1f5f9' }}; 
+            color: {{ '#ffffff' if filter_type == 'materials' else '#475569' }};">
+    🧪 Sirovina i repromaterijal (BOM lager)
+  </a>
+  <a href="/products?type=all" 
+     style="padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; 
+            background: {{ '#3b82f6' if filter_type == 'all' else '#f1f5f9' }}; 
+            color: {{ '#ffffff' if filter_type == 'all' else '#475569' }};">
+    🌐 Svi artikli
+  </a>
+</div>
+
+{# ============ FILTER PRETRAGE ============ #}
+<form method="get" class="filter-form" style="margin-bottom: 18px;">
+  <input type="hidden" name="type" value="{{ filter_type }}">
   <input name="q" value="{{ search }}" placeholder="🔍 {{ t('search_placeholder') }}">
   <label><input type="checkbox" name="low" value="1" {% if only_low %}checked{% endif %}> {{ t("filter_only_low") }}</label>
   <label><input type="checkbox" name="all" value="1" {% if show_all %}checked{% endif %}> {{ t("filter_archived") }}</label>
   <button type="submit" class="btn btn--primary">{{ t("filter_button") }}</button>
-  <a href="/products" class="btn-link">{{ t("reset") }}</a>
+  <a href="/products?type={{ filter_type }}" class="btn-link">{{ t("reset") }}</a>
 </form>
 
-{# ============ DODAVANJE ============ #}
+{# ============ BRZO DODAVANJE ARTIKLA ============ #}
 {% if current_user.role in ('admin', 'manager') %}
-<div class="card">
+<div class="card" style="margin-bottom: 24px;">
   <h3>➕ {{ t("new_product") }}</h3>
   <form method="post" action="/products/add" class="grid-form"
-        style="box-shadow:none; padding:0; background:transparent; border:none;">
-    <input name="sku" placeholder="{{ t('placeholder_sku') }}" required>
-    <input name="name" placeholder="{{ t('placeholder_name') }}" required>
-    <input name="price" type="number" step="0.01" placeholder="{{ t('placeholder_price') }}" required>
-    <input name="cost"  type="number" step="0.01" placeholder="{{ t('placeholder_cost') }}">
-    <input name="stock" type="number" placeholder="{{ t('placeholder_stock') }}" required>
-    <input name="low_stock_at" type="number" placeholder="{{ t('placeholder_low_stock') }}" value="3">
+        style="box-shadow:none; padding:0; background:transparent; border:none; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+    <input name="sku" placeholder="{{ t('placeholder_sku') }}" required style="flex: 1; min-width: 100px;">
+    <input name="name" placeholder="{{ t('placeholder_name') }}" required style="flex: 2; min-width: 150px;">
+    
+    <!-- Izbor tipa -->
+    <select name="is_material" style="padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
+      <option value="0" {% if filter_type != 'materials' %}selected{% endif %}>📦 Gotov proizvod</option>
+      <option value="1" {% if filter_type == 'materials' %}selected{% endif %}>🧪 Sirovina / BOM</option>
+    </select>
+
+    <!-- Izbor jedinice mere -->
+    <select name="unit" style="padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
+      <option value="kom">kom</option>
+      <option value="kg">kg</option>
+      <option value="g">g</option>
+      <option value="l">l</option>
+      <option value="ml">ml</option>
+      <option value="m">m</option>
+    </select>
+
+    <input name="price" type="number" step="0.01" placeholder="{{ t('placeholder_price') }}" required style="width: 90px;">
+    <input name="cost"  type="number" step="0.01" placeholder="{{ t('placeholder_cost') }}" style="width: 90px;">
+    <input name="stock" type="number" step="any" placeholder="{{ t('placeholder_stock') }}" required style="width: 80px;">
+    <input name="low_stock_at" type="number" step="any" placeholder="{{ t('placeholder_low_stock') }}" value="3" style="width: 70px;">
+    
     <button type="submit" class="btn btn--primary">{{ t("add") }}</button>
   </form>
 </div>
@@ -41,17 +82,29 @@
   <table>
     <thead>
       <tr>
-        <th>{{ t("sku") }}</th><th>{{ t("product_name") }}</th><th class="num">{{ t("price") }}</th>
-        <th class="num">{{ t("stock") }}</th><th>{{ t("status") }}</th><th></th>
+        <th>{{ t("sku") }}</th>
+        <th>{{ t("product_name") }}</th>
+        <th class="num">{{ t("price") }}</th>
+        <th class="num">{{ t("stock") }}</th>
+        <th>{{ t("status") }}</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
       {% for p in products %}
       <tr class="{{ 'low' if p.stock <= p.low_stock_at and p.active else '' }} {{ 'archived' if not p.active else '' }}">
         <td><code>{{ p.sku }}</code></td>
-        <td>{{ p.name }}</td>
+        <td>
+          <b>{{ p.name }}</b>
+          {% if p.is_material %}
+            <span style="font-size: 11px; background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: 600;">🧪 Sirovina</span>
+          {% endif %}
+        </td>
         <td class="num">{{ display_money(p.price) }}</td>
-        <td class="num">{{ p.stock }}</td>
+        <td class="num">
+          <b>{{ (p.stock|float)|round(3) if (p.stock|float) % 1 != 0 else (p.stock|int) }}</b> 
+          <span class="muted small">{{ p.unit or 'kom' }}</span>
+        </td>
         <td>
           {% if not p.active %}
             <span class="badge badge--viewer">{{ t("archived_badge") }}</span>

@@ -75,6 +75,13 @@
          class="sidebar__link {{ 'active' if nav == 'analytics_view' }}">
         <span class="sidebar__icon">📊</span> {{ t("analytics") }}
       </a>
+
+      <!-- Usklađen link za Troškove -->
+      <a href="{{ url_for('expenses_view') }}"
+         class="sidebar__link {{ 'active' if nav == 'expenses_view' or request.path.startswith('/expenses') }}">
+        <span class="sidebar__icon">💳</span> {{ t("expenses") if t("expenses") != "expenses" else "Troškovi" }}
+      </a>
+
       <a href="{{ url_for('projects_view') }}"
          class="sidebar__link {{ 'active' if nav.startswith('project') or nav in ('time_add','time_delete','expense_add','expense_delete','team_add') }}">
         <span class="sidebar__icon">📁</span> {{ t("projects") }}
@@ -227,25 +234,28 @@
 
       {% block content %}{% endblock %}
       
-      <footer class="site-footer">
-        <div class="site-footer__box">
-
-          <div class="site-footer__brand">
-            <img src="{{ url_for('static', filename='img/logo-wordmark.png') }}"
-                 alt="ALEXANDAR" class="site-footer__wordmark">
-            <span class="site-footer__studio">Studio</span>
-          </div>
-
-          <span class="site-footer__copy">
-            © 2026 ALEXANDAR Studio. {{ t("all_rights_reserved") }}
-          </span>
-
-          <div class="site-footer__info">
-            <a href="mailto:alexalbekstudio.design@gmail.com">
-              alexalbekstudio.design@gmail.com
-            </a>
-          </div>
+      <!-- FOOTER: ALEXANDAR STUDIO -->
+      <footer style="margin-top: auto; padding: 24px 20px 20px; background: #0f172a; border-top: 1px solid rgba(217, 119, 6, 0.25); color: #94a3b8; font-size: 13px; text-align: center;">
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px;">
           
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; 
+                        background: linear-gradient(135deg, #fcd34d 0%, #d97706 50%, #f59e0b 100%); 
+                        -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 14px;">
+              ALEXANDAR Studio
+            </span>
+            <span style="color: #475569;">•</span>
+            <span style="color: #cbd5e1; font-weight: 500;">MicroStock v1.0</span>
+          </div>
+
+          <div style="color: #64748b; font-size: 12px;">
+            Pametno upravljanje zalihama, sastavnicama i narudžbinama za male proizvođače i zanatlije.
+          </div>
+
+          <div style="font-size: 11px; color: #475569; margin-top: 4px;">
+            &copy; 2026 ALEXANDAR Studio. Sva prava zadržana.
+          </div>
+
         </div>
       </footer>
     </main>

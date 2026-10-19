@@ -6,8 +6,6 @@ Adapter za PostgreSQL (Render i lokalno).
 - Postoji i helper query() koji odmah vraća listu dict-ova.
 
 NAPOMENA: Ovaj adapter je namenjen ISKLJUČIVO PostgreSQL-u.
-Ako želite da podržite i SQLite, javite — ali preporuka je
-da svuda koristite PostgreSQL da izbegnete dijalekt razlike.
 """
 
 import os
@@ -30,17 +28,9 @@ from psycopg2 import pool as pg_pool
 
 log = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Kompatibilnost sa starim API-jem (SQLite + PostgreSQL)
-# ---------------------------------------------------------------------------
-# Ostali moduli u projektu (auth.py, models.py, backup.py, itd.) očekuju
-# ove simbole iz starog db_adapter-a. Pošto smo prešli na PostgreSQL-only,
-# ostavljamo ih kao stubove.
-
 # Uvek PostgreSQL (nema više SQLite fallback-a)
 USE_POSTGRES = True
 
-# Za backup.py — puna URL adresa baze
 DATABASE_URL = None  # postavlja se lenjo preko _database_url()
 
 
@@ -50,22 +40,15 @@ def _refresh_module_globals():
     DATABASE_URL = _database_url()
 
 
-# Ove funkcije su stubovi — u PostgreSQL-only režimu nisu potrebne,
-# ali ih ostali moduli mogu pozivati.
 def get_conn():
-    """
-    Vraća _ConnWrapper (isto kao connect()) — kompatibilnost sa starim kodom.
-    """
     return connect()
 
 
 def adapt_query(sql):
-    """U PostgreSQL-only režimu, samo vrati SQL nepromenjen (očekuje %s)."""
     return sql
 
 
 def adapt_schema(schema_sql):
-    """U PostgreSQL-only režimu, šema je već PostgreSQL sintaksa."""
     return schema_sql
 
 # ---------------------------------------------------------------------------
@@ -73,20 +56,12 @@ def adapt_schema(schema_sql):
 # ---------------------------------------------------------------------------
 
 def _database_url() -> str:
-    """
-    Redosled traženja:
-      1) DATABASE_URL  (Render ga automatski postavlja)
-      2) DB_URL        (alternativa)
-      3) sastavljanje iz PG* varijabli
-    """
     url = os.environ.get("DATABASE_URL") or os.environ.get("DB_URL")
     if url:
-        # Render ponekad daje "postgres://", psycopg2 zahteva "postgresql://"
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql://", 1)
         return url
 
-    # Fallback za lokalni razvoj
     host = os.environ.get("PGHOST", "localhost")
     port = os.environ.get("PGPORT", "5432")
     user = os.environ.get("PGUSER", "postgres")
@@ -95,8 +70,6 @@ def _database_url() -> str:
     return f"postgresql://{user}:{pwd}@{host}:{port}/{db}"
 
 
-# Jednostavan pool — dovoljno za Flask na Render-u (1 worker).
-# Ako imate više worker-a, povećajte maxconn.
 _POOL = None
 
 
@@ -120,17 +93,10 @@ def _get_pool() -> pg_pool.SimpleConnectionPool:
 # ---------------------------------------------------------------------------
 
 class _ConnWrapper:
-    """
-    Tanki omotač oko psycopg2 konekcije koji imitira sqlite3 API
-    (execute/fetchone/fetchall/close) da ostatak koda ne mora da se menja.
-    """
-
     def __init__(self, raw_conn, pool):
         self._raw = raw_conn
         self._pool = pool
         self._closed = False
-
-    # --- izvršavanje ---
 
     def execute(self, sql: str, params=None):
         sql = sql.replace("?", "%s")
@@ -142,6 +108,7 @@ class _ConnWrapper:
             cur.close()
             raise
         return cur
+
     def executemany(self, sql: str, seq_of_params):
         sql = sql.replace("?", "%s")
         cur = self._raw.cursor()
@@ -154,7 +121,6 @@ class _ConnWrapper:
         return cur
 
     def executescript(self, script: str):
-        """Izvršava više SQL naredbi odjednom (kao sqlite3.executescript)."""
         cur = self._raw.cursor()
         try:
             cur.execute(script)
@@ -186,8 +152,6 @@ class _ConnWrapper:
             except Exception:
                 pass
 
-    # --- convenience ---
-
     def cursor(self, *args, **kwargs):
         return self._raw.cursor(*args, **kwargs)
 
@@ -208,27 +172,34 @@ class _ConnWrapper:
 
 def connect():
     """
-    Vraća konekciju — DEMO ili prava baza, zavisno od sesije.
-    Ako je demo_mode u Flask sesiji, koristi 'demo' schema.
+    Vraća konekciju uvek sa čistim 'public' search_path-om,
+    osim ako je u toku sesija u demo režimu (i to van login/logout ruta).
     """
-    # Proveri da li smo u Flask request kontekstu i demo modu
     try:
-        from flask import has_request_context, session
-        if has_request_context() and session.get("demo_mode"):
-            return connect_demo()
+        from flask import has_request_context, session, request
+        if has_request_context():
+            endpoint = request.endpoint or ""
+            # Sve što ima veze sa loginom, odjavom, profilom ili resetom šifre MORA biti public
+            if (
+                "auth." in endpoint 
+                or request.path in ("/login", "/logout", "/demo/exit", "/forgot-password")
+                or request.path.startswith("/reset-password")
+            ):
+                return _connect_public()
+
+            if session.get("demo_mode"):
+                return connect_demo()
     except Exception:
         pass
 
-    raw = _get_pool().getconn()
-    return _ConnWrapper(raw, _get_pool())
+    return _connect_public()
 
 
 # ---------------------------------------------------------------------------
-# Helperi (opciono — mogu da zamene direktne connect() pozive)
+# Helperi
 # ---------------------------------------------------------------------------
 
 def query(sql: str, params=None):
-    """Vraća listu dict-ova."""
     conn = connect()
     try:
         cur = conn.execute(sql, params)
@@ -238,7 +209,6 @@ def query(sql: str, params=None):
 
 
 def query_one(sql: str, params=None):
-    """Vraća jedan dict ili None."""
     conn = connect()
     try:
         cur = conn.execute(sql, params)
@@ -248,7 +218,6 @@ def query_one(sql: str, params=None):
 
 
 def execute(sql: str, params=None):
-    """Izvršava INSERT/UPDATE/DELETE i commit-uje. Vraća rowcount."""
     conn = connect()
     try:
         cur = conn.execute(sql, params)
@@ -262,7 +231,6 @@ def execute(sql: str, params=None):
 
 
 def execute_returning(sql: str, params=None):
-    """Za INSERT ... RETURNING id — vraća fetchone() rezultat."""
     conn = connect()
     try:
         cur = conn.execute(sql, params)
@@ -278,7 +246,6 @@ def execute_returning(sql: str, params=None):
 
 @contextmanager
 def transaction():
-    """with transaction() as conn: ... — automatski commit/rollback."""
     conn = connect()
     try:
         yield conn
@@ -290,37 +257,44 @@ def transaction():
         conn.close()
 
 
-# ---------------------------------------------------------------------------
-# Dijagnostika
-# ---------------------------------------------------------------------------
-
 def healthcheck():
-    """Vraća (True, info) ili (False, greška). Korisno za /health rutu."""
     try:
         row = query_one("SELECT version() AS v, current_database() AS db")
         return True, {"version": row["v"], "database": row["db"]}
     except Exception as e:
         return False, str(e)
 
-# Inicijalizuj module-level konstante
+
 _refresh_module_globals()
 
 # ---------------------------------------------------------------------------
-# DEMO schema (isti pool, drugi search_path)
+# DEMO schema
 # ---------------------------------------------------------------------------
 
-def connect_demo():
-    """
-    Vraća konekciju u 'demo' schema (isti pool, drugi search_path).
-    Koristi se kad je demo_mode aktivan u sesiji.
-    """
+def _connect_public():
+    """Garantovano vraća konekciju čiji je search_path postavljen na public."""
     raw = _get_pool().getconn()
+    cur = raw.cursor()
     try:
-        cur = raw.cursor()
-        try:
-            cur.execute("SET search_path TO demo, public")
-        finally:
-            cur.close()
+        cur.execute("SET search_path TO public;")
+        raw.commit()
+    except Exception:
+        raw.rollback()
+    finally:
+        cur.close()
+    return _ConnWrapper(raw, _get_pool())
+
+
+def connect_demo():
+    """Vraća konekciju u 'demo' schema (search_path: demo, public)."""
+    raw = _get_pool().getconn()
+    cur = raw.cursor()
+    try:
+        cur.execute("SET search_path TO demo, public;")
+        raw.commit()
     except Exception as e:
+        raw.rollback()
         log.error(f"Ne mogu da postavim search_path na demo: {e}")
+    finally:
+        cur.close()
     return _ConnWrapper(raw, _get_pool())
