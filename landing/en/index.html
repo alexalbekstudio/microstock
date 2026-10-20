@@ -333,7 +333,7 @@
         </ul>
         <div style="display:flex; flex-direction:column; gap:.5rem;">
           <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Try for free</a>
-          <button type="button" class="btn btn--primary btn--block btn-pay-en" data-plan="Starter" data-price="€5">
+          <button type="button" class="btn btn--primary btn--block" onclick="openPaymentEn('Starter', '€5')" style="margin-top:.5rem; background:#4f46e5; color:#fff; border:none; padding:.65rem; border-radius:8px; cursor:pointer; font-weight:600;">
             💳 Pay €5 / month
           </button>
         </div>
@@ -359,7 +359,7 @@
         </ul>
         <div style="display:flex; flex-direction:column; gap:.5rem;">
           <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Try for free</a>
-          <button type="button" class="btn btn--primary btn--block btn-pay-en" data-plan="Pro" data-price="€10">
+          <button type="button" class="btn btn--primary btn--block" onclick="openPaymentEn('Pro', '€10')" style="margin-top:.5rem; background:#4f46e5; color:#fff; border:none; padding:.65rem; border-radius:8px; cursor:pointer; font-weight:600;">
             💳 Pay €10 / month
           </button>
         </div>
@@ -380,7 +380,7 @@
         </ul>
         <div style="display:flex; flex-direction:column; gap:.5rem;">
           <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Try for free</a>
-          <button type="button" class="btn btn--primary btn--block btn-pay-en" data-plan="Business" data-price="€20">
+          <button type="button" class="btn btn--primary btn--block" onclick="openPaymentEn('Business', '€20')" style="margin-top:.5rem; background:#4f46e5; color:#fff; border:none; padding:.65rem; border-radius:8px; cursor:pointer; font-weight:600;">
             💳 Pay €20 / month
           </button>
         </div>
@@ -475,40 +475,40 @@
 </footer>
 
 <!-- ============ ENGLISH PAYMENT MODAL ============ -->
-<div id="paymentModalEn" class="pay-modal" style="display:none;">
-  <div class="pay-modal__backdrop" onclick="closePayModalEn()"></div>
-  <div class="pay-modal__dialog">
-    <button class="pay-modal__close" onclick="closePayModalEn()">&times;</button>
+<div id="paymentModalEn" style="display:none; position:fixed; z-index:99999; inset:0; align-items:center; justify-content:center; padding:1rem; font-family:sans-serif;">
+  <!-- Backdrop -->
+  <div onclick="closePayModalEn()" style="position:absolute; inset:0; background:rgba(15, 23, 42, 0.7); backdrop-filter:blur(4px);"></div>
+
+  <!-- Dialog box -->
+  <div style="position:relative; background:#ffffff; border-radius:16px; width:100%; max-width:460px; padding:1.75rem; box-shadow:0 25px 50px -12px rgba(0, 0, 0, 0.25); z-index:2; box-sizing:border-box;">
     
-    <h3 style="margin-top:0; margin-bottom:.4rem;">Activate Subscription: <span id="enModalPlan" style="color:#0ea5e9;">Pro</span></h3>
-    <p style="font-size:.85rem; color:#64748b; margin-bottom:1.2rem;">
-      Pay via International SEPA / Wire transfer. Please include your reference code.
+    <!-- Close button (X) -->
+    <button onclick="closePayModalEn()" style="position:absolute; top:1rem; right:1.2rem; background:none; border:none; font-size:1.6rem; color:#64748b; cursor:pointer; line-height:1;">&times;</button>
+
+    <h3 style="margin-top:0; margin-bottom:.35rem; color:#0f172a; font-size:1.3rem;">
+      Activate: <span id="enModalPlan" style="color:#4f46e5;">Pro</span> Plan
+    </h3>
+    <p style="font-size:.85rem; color:#64748b; margin-top:0; margin-bottom:1.1rem;">
+      Pay via International SEPA / Wire transfer. Copy bank transfer details below:
     </p>
 
-    <!-- Email polje -->
-    <div style="margin-bottom:1rem;">
-      <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:#334155;">Your Account Email:</label>
-      <input type="email" id="enBuyerEmail" placeholder="you@domain.com"
-             style="width:100%; padding:.65rem .85rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.9rem; box-sizing:border-box;">
+    <!-- Wire details table -->
+    <div style="font-size:.84rem; line-height:1.6; background:#f8fafc; border:1px solid #e2e8f0; padding:1rem; border-radius:10px; color:#1e293b; margin-bottom:1.2rem;">
+      <div style="margin-bottom:.35rem;"><strong>Beneficiary:</strong> Slavica Djurdjevic</div>
+      <div style="margin-bottom:.35rem;"><strong>Bank:</strong> Yettel Bank a.d. Beograd (Serbia)</div>
+      <div style="margin-bottom:.35rem;"><strong>SWIFT / BIC:</strong> <span id="enSwift" style="font-family:monospace; font-weight:bold; color:#0f172a;">MOBYRS22</span></div>
+      <div style="margin-bottom:.35rem;"><strong>IBAN:</strong> <span id="enIban" style="font-family:monospace; font-weight:bold; color:#0f172a;">RS351150000000000000</span></div>
+      <div style="margin-bottom:.35rem;"><strong>Amount:</strong> <span id="enModalPrice" style="font-weight:bold; color:#4f46e5;">€10 / month</span></div>
+      <div><strong>Payment Reference:</strong> <span id="enModalRef" style="font-family:monospace; font-weight:bold; color:#4f46e5; font-size:1rem;">MS-0000</span></div>
     </div>
 
-    <!-- Wire Transfer Detalji -->
-    <div class="pay-details" style="font-size:.82rem; line-height:1.6; background:#f8fafc; border:1px solid #e2e8f0; padding:1rem; border-radius:10px;">
-      <div><strong>Beneficiary:</strong> Slavica Djurdjevic</div>
-      <div><strong>Bank:</strong> Yettel Bank a.d. Beograd (Serbia)</div>
-      <div><strong>SWIFT / BIC:</strong> <span id="enSwift" style="font-family:monospace; font-weight:bold;">YETTEL_SWIFT</span></div>
-      <div><strong>IBAN:</strong> <span id="enIban" style="font-family:monospace; font-weight:bold;">RS351150000000000000</span></div>
-      <div><strong>Amount:</strong> <span id="enModalPrice" style="font-weight:bold; color:#0f172a;">€10.00</span></div>
-      <div><strong>Reference (Payment details):</strong> <span id="enModalRef" style="font-family:monospace; font-weight:bold; color:#0284c7;">MS-0000</span></div>
+    <div style="font-size:.78rem; color:#64748b; background:#f1f5f9; padding:.75rem; border-radius:8px; margin-bottom:1.2rem;">
+      💡 <strong>Important:</strong> Please make sure to include the reference code <strong id="enNoteRef" style="color:#4f46e5;">MS-0000</strong> in your transfer details so we can identify your account immediately.
     </div>
 
-    <button type="button" class="btn btn--primary btn--block" onclick="confirmPaymentRequestEn()" style="margin-top:1.1rem;">
-      Confirm Payment Sent →
+    <button type="button" onclick="closePayModalEn()" style="width:100%; padding:.75rem; background:#4f46e5; color:#ffffff; font-weight:600; border:none; border-radius:8px; cursor:pointer; font-size:.9rem;">
+      Got it, thank you
     </button>
-    
-    <p style="font-size:.76rem; color:#94a3b8; margin-top:.75rem; text-align:center;">
-      Once sent, confirmation is verified and your account is upgraded within 2-4 hours.
-    </p>
   </div>
 </div>
 
@@ -517,43 +517,24 @@
   const IBAN_NUMBER = "RS35115038166537114015";
   const SWIFT_CODE = "AAAARSBG"; // Standardni SWIFT za Yettel Bank a.d.
 
-  document.querySelectorAll('.btn-pay-en').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const plan = btn.getAttribute('data-plan');
-      const price = btn.getAttribute('data-price');
-      openPaymentEn(plan, price);
-    });
-  });
-
   function openPaymentEn(plan, price) {
-    document.getElementById('enModalPlan').innerText = plan;
-    document.getElementById('enModalPrice').innerText = price;
-    document.getElementById('enIban').innerText = IBAN_NUMBER;
-    document.getElementById('enSwift').innerText = SWIFT_CODE;
+      const modal = document.getElementById('paymentModalEn');
+      document.getElementById('enModalPlan').innerText = plan;
+      document.getElementById('enModalPrice').innerText = price;
+      document.getElementById('enIban').innerText = EN_IBAN_NUMBER;
+      document.getElementById('enSwift').innerText = EN_SWIFT_CODE;
 
-    // Generiše jedinstvenu referencu
-    const refCode = "MS-" + Math.floor(1000 + Math.random() * 9000);
-    document.getElementById('enModalRef').innerText = refCode;
+      // Generisanje referentnog broja
+      const refCode = "MS-" + Math.floor(1000 + Math.random() * 9000);
+      document.getElementById('enModalRef').innerText = refCode;
+      document.getElementById('enNoteRef').innerText = refCode;
 
-    document.getElementById('paymentModalEn').style.display = 'flex';
-  }
-
-  function closePayModalEn() {
-    document.getElementById('paymentModalEn').style.display = 'none';
-  }
-
-  function confirmPaymentRequestEn() {
-    const email = document.getElementById('enBuyerEmail').value.trim();
-    const ref = document.getElementById('enModalRef').innerText;
-
-    if (!email || !email.includes('@')) {
-      alert('Please enter a valid email address.');
-      return;
+      modal.style.display = 'flex';
     }
 
-    alert(`Payment reference ${ref} recorded for ${email}. Your plan will be activated as soon as transfer arrives.`);
-    closePayModalEn();
-  }
+    function closePayModalEn() {
+      document.getElementById('paymentModalEn').style.display = 'none';
+    }
 </script>
 
 </body>
