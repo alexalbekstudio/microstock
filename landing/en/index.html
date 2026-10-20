@@ -311,12 +311,14 @@
 </section>
 
 <!-- ============ PRICING ============ -->
+<!-- ============ PRICING ============ -->
 <section class="pricing" id="pricing">
   <div class="container">
     <h2 class="section-title">Choose a plan.</h2>
     <p class="section-subtitle">14 days free. No credit card. Cancel anytime.</p>
 
     <div class="pricing__grid">
+      <!-- STARTER -->
       <div class="pricing-card">
         <h3 class="pricing-card__name">🎯 Starter</h3>
         <div class="pricing-card__price">€5<span>/month</span></div>
@@ -329,9 +331,15 @@
           <li>✓ Multi-currency (RSD/EUR/USD)</li>
           <li>✓ Email support (48h)</li>
         </ul>
-        <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Try for free</a>
+        <div style="display:flex; flex-direction:column; gap:.5rem;">
+          <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Try for free</a>
+          <button type="button" class="btn btn--primary btn--block btn-pay-en" data-plan="Starter" data-price="€5">
+            💳 Pay €5 / month
+          </button>
+        </div>
       </div>
 
+      <!-- PRO -->
       <div class="pricing-card pricing-card--featured">
         <div class="pricing-card__badge">⭐ Recommended</div>
         <h3 class="pricing-card__name">🚀 Pro</h3>
@@ -349,9 +357,15 @@
           <li>✓ PDF reports</li>
           <li>✓ Email support (24h)</li>
         </ul>
-        <a href="https://microstock.onrender.com/login" class="btn btn--primary btn--block">Try for free</a>
+        <div style="display:flex; flex-direction:column; gap:.5rem;">
+          <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Try for free</a>
+          <button type="button" class="btn btn--primary btn--block btn-pay-en" data-plan="Pro" data-price="€10">
+            💳 Pay €10 / month
+          </button>
+        </div>
       </div>
 
+      <!-- BUSINESS -->
       <div class="pricing-card">
         <h3 class="pricing-card__name">🏆 Business</h3>
         <div class="pricing-card__price">€20<span>/month</span></div>
@@ -364,9 +378,15 @@
           <li>✓ Daily backup</li>
           <li>✓ Onboarding call (1h)</li>
         </ul>
-        <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Try for free</a>
+        <div style="display:flex; flex-direction:column; gap:.5rem;">
+          <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Try for free</a>
+          <button type="button" class="btn btn--primary btn--block btn-pay-en" data-plan="Business" data-price="€20">
+            💳 Pay €20 / month
+          </button>
+        </div>
       </div>
 
+      <!-- ENTERPRISE -->
       <div class="pricing-card">
         <h3 class="pricing-card__name">💼 Enterprise</h3>
         <div class="pricing-card__price">Contact</div>
@@ -453,6 +473,88 @@
     </div>
   </div>
 </footer>
+
+<!-- ============ ENGLISH PAYMENT MODAL ============ -->
+<div id="paymentModalEn" class="pay-modal" style="display:none;">
+  <div class="pay-modal__backdrop" onclick="closePayModalEn()"></div>
+  <div class="pay-modal__dialog">
+    <button class="pay-modal__close" onclick="closePayModalEn()">&times;</button>
+    
+    <h3 style="margin-top:0; margin-bottom:.4rem;">Activate Subscription: <span id="enModalPlan" style="color:#0ea5e9;">Pro</span></h3>
+    <p style="font-size:.85rem; color:#64748b; margin-bottom:1.2rem;">
+      Pay via International SEPA / Wire transfer. Please include your reference code.
+    </p>
+
+    <!-- Email polje -->
+    <div style="margin-bottom:1rem;">
+      <label style="display:block; font-size:.8rem; font-weight:600; margin-bottom:.3rem; color:#334155;">Your Account Email:</label>
+      <input type="email" id="enBuyerEmail" placeholder="you@domain.com"
+             style="width:100%; padding:.65rem .85rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.9rem; box-sizing:border-box;">
+    </div>
+
+    <!-- Wire Transfer Detalji -->
+    <div class="pay-details" style="font-size:.82rem; line-height:1.6; background:#f8fafc; border:1px solid #e2e8f0; padding:1rem; border-radius:10px;">
+      <div><strong>Beneficiary:</strong> Slavica Djurdjevic</div>
+      <div><strong>Bank:</strong> Yettel Bank a.d. Beograd (Serbia)</div>
+      <div><strong>SWIFT / BIC:</strong> <span id="enSwift" style="font-family:monospace; font-weight:bold;">YETTEL_SWIFT</span></div>
+      <div><strong>IBAN:</strong> <span id="enIban" style="font-family:monospace; font-weight:bold;">RS351150000000000000</span></div>
+      <div><strong>Amount:</strong> <span id="enModalPrice" style="font-weight:bold; color:#0f172a;">€10.00</span></div>
+      <div><strong>Reference (Payment details):</strong> <span id="enModalRef" style="font-family:monospace; font-weight:bold; color:#0284c7;">MS-0000</span></div>
+    </div>
+
+    <button type="button" class="btn btn--primary btn--block" onclick="confirmPaymentRequestEn()" style="margin-top:1.1rem;">
+      Confirm Payment Sent →
+    </button>
+    
+    <p style="font-size:.76rem; color:#94a3b8; margin-top:.75rem; text-align:center;">
+      Once sent, confirmation is verified and your account is upgraded within 2-4 hours.
+    </p>
+  </div>
+</div>
+
+<script>
+  // Unesite stvarni devizni IBAN i SWIFT Yettel banke:
+  const IBAN_NUMBER = "RS35115038166537114015";
+  const SWIFT_CODE = "AAAARSBG"; // Standardni SWIFT za Yettel Bank a.d.
+
+  document.querySelectorAll('.btn-pay-en').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const plan = btn.getAttribute('data-plan');
+      const price = btn.getAttribute('data-price');
+      openPaymentEn(plan, price);
+    });
+  });
+
+  function openPaymentEn(plan, price) {
+    document.getElementById('enModalPlan').innerText = plan;
+    document.getElementById('enModalPrice').innerText = price;
+    document.getElementById('enIban').innerText = IBAN_NUMBER;
+    document.getElementById('enSwift').innerText = SWIFT_CODE;
+
+    // Generiše jedinstvenu referencu
+    const refCode = "MS-" + Math.floor(1000 + Math.random() * 9000);
+    document.getElementById('enModalRef').innerText = refCode;
+
+    document.getElementById('paymentModalEn').style.display = 'flex';
+  }
+
+  function closePayModalEn() {
+    document.getElementById('paymentModalEn').style.display = 'none';
+  }
+
+  function confirmPaymentRequestEn() {
+    const email = document.getElementById('enBuyerEmail').value.trim();
+    const ref = document.getElementById('enModalRef').innerText;
+
+    if (!email || !email.includes('@')) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+
+    alert(`Payment reference ${ref} recorded for ${email}. Your plan will be activated as soon as transfer arrives.`);
+    closePayModalEn();
+  }
+</script>
 
 </body>
 </html>

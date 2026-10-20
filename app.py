@@ -349,6 +349,39 @@ ALL_ROLES = ("admin", "manager", "viewer")
 EDIT_ROLES = ("admin", "manager")
 ADMIN_ONLY = ("admin",)
 
+from functools import wraps
+import limits
+
+def feature_required(feature_key):
+    """
+    Dekorater koji proverava da li korisnikov pretplatnički paket
+    podržava određenu funkcionalnost (npr. 'has_projects', 'has_suppliers', 'has_analytics').
+    Admini uvek imaju pun pristup.
+    """
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                return redirect(url_for("auth.login"))
+
+            # Admini imaju pristup bez ikakvih restrikcija
+            if current_user.role == "admin":
+                return f(*args, **kwargs)
+
+            # Provera paketa i statusa
+            plan, is_active, rules = limits.get_user_plan_context(current_user.id)
+
+            if not is_active:
+                flash("Vaša pretplata je istekla. Obnovite paket za nastavak rada.", "err")
+                return redirect(url_for("billing_view"))
+
+            if not rules.get(feature_key, False):
+                flash(f"Funkcija nije dostupna u paketu '{plan.upper()}'. Nadogradite paket na Pro.", "err")
+                return redirect(url_for("billing_view"))
+
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 # ==================== DASHBOARD ====================
 
@@ -410,6 +443,12 @@ def products():
 @login_required
 @role_required(*EDIT_ROLES)
 def add_product():
+    # AUTOMATSKA PROVERA LIMITA PAKETA
+    allowed, err_msg = limits.can_add_product(current_user.id)
+    if not allowed and current_user.role != "admin":
+        flash(err_msg, "err")
+        return redirect(url_for("billing_view"))
+    
     is_material = int(request.form.get("is_material") or 0)
     unit = request.form.get("unit") or "kom"
 
@@ -548,6 +587,12 @@ def build_whatsapp_link(phone, message=""):
 @login_required
 @role_required(*EDIT_ROLES)
 def new_order():
+    # AUTOMATSKA PROVERA MESEČNOG LIMITA
+    allowed, err_msg = limits.can_add_order(current_user.id)
+    if not allowed and current_user.role != "admin":
+        flash(err_msg, "err")
+        return redirect(url_for("billing_view"))
+    
     product_ids = request.form.getlist("product_id[]")
     qtys        = request.form.getlist("qty[]")
     items = []
@@ -693,6 +738,7 @@ def invoice_pdf(order_id):
 @app.route("/analytics.pdf")
 @login_required
 @role_required(*ALL_ROLES)
+@feature_required("has_analytics")
 def analytics_pdf():
     """PDF izveštaj analitike."""
     days = request.args.get("days", type=int)
@@ -868,6 +914,70 @@ def admin_dashboard():
         users=admin_analytics.activity_by_user(days),
         limits=admin_analytics.package_limits_overview(),
         days=days,
+    )
+
+# ==================== KORISNIK: PREDPLATA / BILLING ====================
+
+@app.route("/billing")
+@login_required
+@role_required(*ALL_ROLES)
+def billing_view():
+    """Korisnički pregled pretplate sa podacima za produženje (Yettel IPS QR)."""
+    import subscriptions as subs
+    from datetime import date, timedelta
+    from db_adapter import connect
+
+    conn = connect()
+    try:
+        # Uzmi najsvežiju pretplatu korisnika
+        sub = conn.execute("""
+            SELECT * FROM subscriptions 
+            WHERE user_id = %s 
+            ORDER BY id DESC LIMIT 1
+        """, (current_user.id,)).fetchone()
+
+        # Ako korisnik nema nijedan unos, automatski mu dodeljujemo 14 dana Trial
+        if not sub:
+            today = date.today()
+            end_trial = today + timedelta(days=14)
+            sub_id = subs.add_subscription(
+                user_id=current_user.id,
+                plan_name="trial",
+                status="active",
+                start_date=today,
+                end_date=end_trial,
+                renewal_date=end_trial,
+                notes="Automatski 14-dnevni probni period"
+            )
+            sub = subs.get_subscription(sub_id)
+        else:
+            sub = dict(sub)
+    finally:
+        conn.close()
+
+    today = date.today()
+    end_date = sub.get("end_date")
+    
+    # Proračun preostalih dana
+    if end_date:
+        if isinstance(end_date, str):
+            from datetime import datetime as dt
+            end_date = dt.strptime(end_date, "%Y-%m-%d").date()
+        days_left = (end_date - today).days
+    else:
+        days_left = 0
+
+    is_active = (days_left >= 0) and (sub.get("status") == "active")
+
+    # Poziv na broj specifičan za ovog korisnika (npr. MS-0012)
+    user_ref = f"MS-{current_user.id:04d}"
+
+    return render_template(
+        "billing.html",
+        sub=sub,
+        is_active=is_active,
+        days_left=max(0, days_left),
+        user_ref=user_ref
     )
 
 # ==================== ADMIN: PRETPLATE ====================
@@ -1605,6 +1715,7 @@ def pricing_preset_delete(preset_id):
 @app.route("/projects")
 @login_required
 @role_required(*ALL_ROLES)
+@feature_required("has_projects")
 def projects_view():
     status = request.args.get("status") or None
     return render_template(
@@ -1618,6 +1729,7 @@ def projects_view():
 @app.route("/projects/new", methods=["GET", "POST"])
 @login_required
 @role_required(*EDIT_ROLES)
+@feature_required("has_projects")
 def project_new():
     if request.method == "POST":
         proj.add_project(
@@ -2229,6 +2341,7 @@ def help_view():
 @app.route("/suppliers")
 @login_required
 @role_required(*ALL_ROLES)
+@feature_required("has_suppliers")
 def suppliers_view():
     """Lista dobavljača."""
     import suppliers as supp
@@ -2356,6 +2469,7 @@ def api_suppliers():
 @app.route("/purchases")
 @login_required
 @role_required(*ALL_ROLES)
+@feature_required("has_suppliers")
 def purchases_view():
     """Lista računa nabavke."""
     import purchases as purch

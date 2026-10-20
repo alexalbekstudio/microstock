@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Pretplata — MicroStock{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 860px; margin: 2rem auto; padding: 0 1rem;">
+  <h1 style="font-size: 1.75rem; margin-bottom: 0.25rem; color:#0f172a;">Pretplata i Plan</h1>
+  <p style="color: #64748b; margin-bottom: 2rem; font-size: 0.95rem;">Status vašeg paketa i instrukcije za produženje.</p>
+
+  <!-- Status kartica -->
+  <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.5rem; margin-bottom: 2.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+      <div>
+        <span style="font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: #64748b; font-weight: 700;">Trenutni paket</span>
+        <h2 style="margin: .35rem 0; font-size: 1.6rem; color: #0f172a; text-transform: capitalize;">
+          {{ sub.plan_name }}
+        </h2>
+        <p style="margin: 0; font-size: .92rem; color: #475569;">
+          {% if is_active %}
+            Pretplata je aktivna do: <strong>{{ sub.end_date.strftime('%d.%m.%Y.') if sub.end_date else 'N/A' }}</strong>
+            <span style="color:#64748b; margin-left:.3rem;">(još {{ days_left }} dana)</span>
+          {% else %}
+            <span style="color: #ef4444; font-weight: 600;">Paket je istekao ili je neaktivan.</span>
+          {% endif %}
+        </p>
+      </div>
+
+      <div>
+        {% if is_active %}
+          <span style="background: #dcfce7; color: #166534; padding: .45rem 1rem; border-radius: 9999px; font-weight: 600; font-size: .85rem;">
+            ✓ Aktivan
+          </span>
+        {% else %}
+          <span style="background: #fee2e2; color: #991b1b; padding: .45rem 1rem; border-radius: 9999px; font-weight: 600; font-size: .85rem;">
+            ✕ Istekao
+          </span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Planovi -->
+  <h3 style="font-size: 1.25rem; margin-bottom: 1rem; color:#0f172a;">Izaberite paket za produženje (30 dana)</h3>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+    <!-- Starter -->
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; text-align: center;">
+      <h4 style="margin: 0; font-size: 1.2rem; color:#0f172a;">🎯 Starter</h4>
+      <div style="font-size: 1.5rem; font-weight: 700; margin: .8rem 0; color:#0f172a;">600 RSD <span style="font-size:.85rem; font-weight:normal; color:#64748b;">(5€)</span></div>
+      <p style="font-size: .82rem; color: #64748b; margin-bottom: 1.25rem; min-height: 38px;">Do 50 proizvoda i 100 narudžbina/mesec.</p>
+      <button onclick="prikaziUplatu('Starter', '600')" class="btn" style="width:100%; padding:.6rem; background:#f1f5f9; color:#0f172a; font-weight:600; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;">
+        Izaberi Starter
+      </button>
+    </div>
+
+    <!-- Pro -->
+    <div style="background: #ffffff; border: 2px solid #4f46e5; border-radius: 12px; padding: 1.5rem; text-align: center; position:relative;">
+      <span style="position:absolute; top:-11px; right:14px; background:#4f46e5; color:#fff; font-size:.7rem; padding:.2rem .6rem; border-radius:999px; font-weight:700;">PREPORUČENO</span>
+      <h4 style="margin: 0; font-size: 1.2rem; color:#4f46e5;">🚀 Pro</h4>
+      <div style="font-size: 1.5rem; font-weight: 700; margin: .8rem 0; color:#4f46e5;">1.200 RSD <span style="font-size:.85rem; font-weight:normal; color:#64748b;">(10€)</span></div>
+      <p style="font-size: .82rem; color: #64748b; margin-bottom: 1.25rem; min-height: 38px;">Neograničeno artikala, analitika, recepture i zalihe.</p>
+      <button onclick="prikaziUplatu('Pro', '1200')" class="btn" style="width:100%; padding:.6rem; background:#4f46e5; color:#ffffff; font-weight:600; border:none; border-radius:8px; cursor:pointer;">
+        Izaberi Pro
+      </button>
+    </div>
+
+    <!-- Business -->
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; text-align: center;">
+      <h4 style="margin: 0; font-size: 1.2rem; color:#0f172a;">🏆 Business</h4>
+      <div style="font-size: 1.5rem; font-weight: 700; margin: .8rem 0; color:#0f172a;">2.400 RSD <span style="font-size:.85rem; font-weight:normal; color:#64748b;">(20€)</span></div>
+      <p style="font-size: .82rem; color: #64748b; margin-bottom: 1.25rem; min-height: 38px;">Neograničeno korisnika, projekti i prioritetna podrška.</p>
+      <button onclick="prikaziUplatu('Business', '2400')" class="btn" style="width:100%; padding:.6rem; background:#f1f5f9; color:#0f172a; font-weight:600; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;">
+        Izaberi Business
+      </button>
+    </div>
+  </div>
+
+  <!-- Uplatnica / QR sekcija -->
+  <div id="uplatnicaSekcija" style="display:none; background:#ffffff; border:1px solid #cbd5e1; border-radius:14px; padding:1.75rem; box-shadow:0 10px 15px -3px rgba(0,0,0,0.05);">
+    <h3 style="margin-top:0; margin-bottom:.4rem; color:#0f172a;">
+      Instrukcije za uplatu paketa: <span id="izabraniPaket" style="color:#4f46e5;"></span>
+    </h3>
+    <p style="color:#64748b; font-size:.85rem; margin-bottom:1.5rem;">
+      Skenirajte NBS IPS QR kod bankarskom m-banking aplikacijom ili uplatite nalogom za prenos:
+    </p>
+
+    <div style="display:flex; flex-wrap:wrap; gap:2rem; align-items:center;">
+      <div style="text-align:center; background:#f8fafc; padding:1rem; border-radius:12px; border:1px solid #e2e8f0;">
+        <img id="ipsQrImg" src="" alt="IPS QR Kod" style="width:190px; height:190px; display:block; border-radius:8px;">
+        <span style="font-size:.75rem; color:#64748b; margin-top:.5rem; display:block; font-weight:500;">m-banking &rarr; IPS Skeniraj</span>
+      </div>
+
+      <div style="flex:1; min-width:270px; font-size:.88rem; line-height:1.75; background:#f8fafc; padding:1.25rem; border-radius:10px; border:1px solid #e2e8f0;">
+        <div><strong>Primalac:</strong> Slavica Đurđević</div>
+        <div><strong>Račun primaoca:</strong> <span style="font-family:monospace; font-weight:bold;">115-0000000000000-00</span></div>
+        <div><strong>Iznos:</strong> <span id="iznosRsd" style="font-weight:bold; color:#0f172a;"></span> RSD</div>
+        <div><strong>Šifra plaćanja:</strong> 289</div>
+        <div><strong>Poziv na broj:</strong> <span style="font-family:monospace; font-weight:bold; color:#4f46e5; font-size:1.05rem;">{{ user_ref }}</span></div>
+        <div><strong>Svrha uplate:</strong> <span id="svrhaTekst"></span></div>
+      </div>
+    </div>
+
+    <div style="margin-top:1.25rem; font-size:.82rem; color:#64748b; background:#f1f5f9; padding:.75rem 1rem; border-radius:8px;">
+      💡 <strong>Napomena:</strong> Obavezno navedite poziv na broj <strong>{{ user_ref }}</strong> kako bi sistem automatski povezao uplatu sa vašim nalogom.
+    </div>
+  </div>
+</div>
+
+<script>
+  // Unesite vaš pun 18-cifreni Yettel račun bez crtica:
+  const YETTEL_ACCOUNT_RAW = "115038166537114015"; 
+  const BENEFICIARY_NAME = "Đurđević Slavica";
+  const USER_REF = "{{ user_ref }}";
+
+  function prikaziUplatu(paket, iznos) {
+    document.getElementById('izabraniPaket').innerText = paket;
+    document.getElementById('iznosRsd').innerText = Number(iznos).toLocaleString('sr-RS');
+    
+    const purpose = `MicroStock ${paket} pretplata`;
+    document.getElementById('svrhaTekst').innerText = purpose;
+
+    const formattedAmount = `RSD${iznos},00`;
+    const ipsString = `K:PR|V:01|C:1|R:${YETTEL_ACCOUNT_RAW}|N:${BENEFICIARY_NAME}|I:${formattedAmount}|SF:289|S:${purpose}|RO:${USER_REF}`;
+
+    const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=" + encodeURIComponent(ipsString);
+    document.getElementById('ipsQrImg').src = qrUrl;
+
+    const sekcija = document.getElementById('uplatnicaSekcija');
+    sekcija.style.display = 'block';
+    sekcija.scrollIntoView({ behavior: 'smooth' });
+  }
+</script>
+{% endblock %}

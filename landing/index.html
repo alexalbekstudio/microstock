@@ -316,6 +316,7 @@
     <p class="section-subtitle">14 dana besplatno. Bez kartice. Otkaži kad hoćeš.</p>
 
     <div class="pricing__grid">
+      <!-- STARTER -->
       <div class="pricing-card">
         <h3 class="pricing-card__name">🎯 Starter</h3>
         <div class="pricing-card__price">5€<span>/mesec</span></div>
@@ -328,9 +329,15 @@
           <li>✓ Multi-currency (RSD/EUR/USD)</li>
           <li>✓ Email podrška (48h)</li>
         </ul>
-        <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Probaj besplatno</a>
+        <div style="display:flex; flex-direction:column; gap:.5rem;">
+          <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Probaj besplatno</a>
+          <button type="button" class="btn btn--primary btn--block" onclick="openPayment('Starter', '600')" style="margin-top:.5rem; background:#4f46e5; color:#fff; border:none; padding:.65rem; border-radius:8px; cursor:pointer; font-weight:600;">
+            💳 Plati odmah (600 RSD)
+          </button>
+        </div>
       </div>
 
+      <!-- PRO -->
       <div class="pricing-card pricing-card--featured">
         <div class="pricing-card__badge">⭐ Preporučeno</div>
         <h3 class="pricing-card__name">🚀 Pro</h3>
@@ -348,9 +355,15 @@
           <li>✓ PDF izveštaji</li>
           <li>✓ Email podrška (24h)</li>
         </ul>
-        <a href="https://microstock.onrender.com/login" class="btn btn--primary btn--block">Probaj besplatno</a>
+        <div style="display:flex; flex-direction:column; gap:.5rem;">
+          <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Probaj besplatno</a>
+          <button type="button" class="btn btn--primary btn--block" onclick="openPayment('Pro', '1200')" style="margin-top:.5rem; background:#4f46e5; color:#fff; border:none; padding:.65rem; border-radius:8px; cursor:pointer; font-weight:600;">
+            💳 Plati odmah (1.200 RSD)
+          </button>
+        </div>
       </div>
 
+      <!-- BUSINESS -->
       <div class="pricing-card">
         <h3 class="pricing-card__name">🏆 Business</h3>
         <div class="pricing-card__price">20€<span>/mesec</span></div>
@@ -363,9 +376,15 @@
           <li>✓ Dnevni backup</li>
           <li>✓ Onboarding poziv (1h)</li>
         </ul>
-        <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Probaj besplatno</a>
+        <div style="display:flex; flex-direction:column; gap:.5rem;">
+          <a href="https://microstock.onrender.com/login" class="btn btn--secondary btn--block">Probaj besplatno</a>
+          <button type="button" class="btn btn--primary btn--block" onclick="openPayment('Business', '2400')" style="margin-top:.5rem; background:#4f46e5; color:#fff; border:none; padding:.65rem; border-radius:8px; cursor:pointer; font-weight:600;">
+            💳 Plati odmah (2.400 RSD)
+          </button>
+        </div>
       </div>
 
+      <!-- ENTERPRISE -->
       <div class="pricing-card">
         <h3 class="pricing-card__name">💼 Enterprise</h3>
         <div class="pricing-card__price">Kontakt</div>
@@ -452,6 +471,86 @@
     </div>
   </div>
 </footer>
+
+<!-- ============ PAYMENT MODAL ============ -->
+<!-- ============ NBS IPS PAYMENT MODAL ============ -->
+<div id="paymentModal" style="display:none; position:fixed; z-index:99999; inset:0; align-items:center; justify-content:center; padding:1rem; font-family:sans-serif;">
+  <!-- Pozadina (backdrop) -->
+  <div onclick="closePayModal()" style="position:absolute; inset:0; background:rgba(15, 23, 42, 0.7); backdrop-filter:blur(4px);"></div>
+
+  <!-- Sadržaj modala -->
+  <div style="position:relative; background:#ffffff; border-radius:16px; width:100%; max-width:440px; padding:1.75rem; box-shadow:0 25px 50px -12px rgba(0, 0, 0, 0.25); z-index:2; box-sizing:border-box;">
+    
+    <!-- Dugme za zatvaranje (X) -->
+    <button onclick="closePayModal()" style="position:absolute; top:1rem; right:1.2rem; background:none; border:none; font-size:1.6rem; color:#64748b; cursor:pointer; line-height:1;">&times;</button>
+
+    <h3 style="margin-top:0; margin-bottom:.35rem; color:#0f172a; font-size:1.3rem;">
+      Uplata paketa: <span id="modalPlanName" style="color:#4f46e5;">Pro</span>
+    </h3>
+    <p style="font-size:.85rem; color:#64748b; margin-top:0; margin-bottom:1.1rem;">
+      Skenirajte NBS IPS QR kod bankarskom aplikacijom (IPS Skeniraj) ili prepišite podatke:
+    </p>
+
+    <!-- Prikaz QR Koda -->
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+      <img id="ipsQrImg" src="" alt="NBS IPS QR Kod" style="width:200px; height:200px; display:block; border-radius:8px;">
+      <span style="font-size:.75rem; color:#64748b; margin-top:.4rem; font-weight:500;">Otvorite m-banking &rarr; IPS Skeniraj</span>
+    </div>
+
+    <!-- Podaci uplatnice -->
+    <div style="font-size:.82rem; line-height:1.5; background:#f1f5f9; padding:.85rem 1rem; border-radius:8px; color:#1e293b; margin-bottom:1rem;">
+      <div style="margin-bottom:.3rem;"><strong>Primalac:</strong> Slavica Đurđević</div>
+      <div style="margin-bottom:.3rem;"><strong>Račun:</strong> <span id="bankAccDisplay" style="font-family:monospace; font-weight:bold;">115-0000000000000-00</span></div>
+      <div style="margin-bottom:.3rem;"><strong>Iznos:</strong> <span id="modalPrice" style="font-weight:bold; color:#0f172a;">1.200</span> RSD</div>
+      <div style="margin-bottom:.3rem;"><strong>Šifra plaćanja:</strong> 289</div>
+      <div style="margin-bottom:.3rem;"><strong>Poziv na broj:</strong> <span id="modalRef" style="font-family:monospace; font-weight:bold; color:#4f46e5;">MS-0000</span></div>
+      <div><strong>Svrha uplate:</strong> <span id="modalPurpose">MicroStock Pro pretplata</span></div>
+    </div>
+
+    <button type="button" onclick="closePayModal()" style="width:100%; padding:.75rem; background:#4f46e5; color:#ffffff; font-weight:600; border:none; border-radius:8px; cursor:pointer; font-size:.9rem;">
+      U redu, razumem
+    </button>
+  </div>
+</div>
+
+<script>
+  // Unesite stvarni broj računa iz Yettel banke:
+  const YETTEL_ACCOUNT_RAW = "115038166537114015"; 
+  const YETTEL_ACCOUNT_DISPLAY = "115-0381665371140-15";
+  const BENEFICIARY_NAME = "Đurđević Slavica";
+
+  function openPayment(planName, amountRsd) {
+    const modal = document.getElementById('paymentModal');
+    document.getElementById('modalPlanName').innerText = planName;
+    document.getElementById('modalPrice').innerText = Number(amountRsd).toLocaleString('sr-RS');
+    document.getElementById('bankAccDisplay').innerText = YETTEL_ACCOUNT_DISPLAY;
+
+    const purpose = `MicroStock ${planName} pretplata`;
+    document.getElementById('modalPurpose').innerText = purpose;
+
+    // Generiše jedinstveni poziv na broj za identifikaciju
+    const refCode = "MS-" + Math.floor(1000 + Math.random() * 9000);
+    document.getElementById('modalRef').innerText = refCode;
+
+    // Zvanični NBS IPS format string
+    const formattedAmount = `RSD${amountRsd},00`;
+    const ipsString = `K:PR|V:01|C:1|R:${YETTEL_ACCOUNT_RAW}|N:${BENEFICIARY_NAME}|I:${formattedAmount}|SF:289|S:${purpose}|RO:${refCode}`;
+
+    // Pouzdan generator QR koda putem standardne slike (radi uvek bez eksternih JS biblioteka)
+    const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=" + encodeURIComponent(ipsString);
+    document.getElementById('ipsQrImg').src = qrUrl;
+
+    // Prikaz modala
+    modal.style.display = 'flex';
+  }
+
+  function closePayModal() {
+    document.getElementById('paymentModal').style.display = 'none';
+  }
+</script>
+
+<!-- Učitavanje QRCode biblioteke -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
 </body>
 </html>

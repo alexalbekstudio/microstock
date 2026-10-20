@@ -432,3 +432,59 @@ def list_raw_materials(user_id):
         return []
     finally:
         conn.close()
+
+# ==================== PRETPLATE (SUBSCRIPTIONS) ====================
+from datetime import date, timedelta
+
+def get_user_subscription(user_id):
+    """Vraća najnoviju pretplatu korisnika ili None."""
+    conn = connect()
+    try:
+        row = conn.execute("""
+            SELECT * FROM subscriptions 
+            WHERE user_id = %s 
+            ORDER BY id DESC LIMIT 1
+        """, (user_id,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+def ensure_user_trial(user_id):
+    """Ako korisnik nema pretplatu, otvara trial na 14 dana."""
+    sub = get_user_subscription(user_id)
+    if not sub:
+        conn = connect()
+        try:
+            today = date.today()
+            end_trial = today + timedelta(days=14)
+            conn.execute("""
+                INSERT INTO subscriptions (user_id, plan_name, status, start_date, end_date, renewal_date, notes)
+                VALUES (%s, 'trial', 'active', %s, %s, %s, 'Automatski 14-dnevni probni period')
+            """, (user_id, today, end_trial, end_trial))
+            conn.commit()
+        finally:
+            conn.close()
+
+def activate_subscription(user_id, plan_name, days=30, note="Uplata na račun (Yettel)"):
+    """Aktivira ili produžava pretplatu korisnika."""
+    sub = get_user_subscription(user_id)
+    today = date.today()
+    
+    # Ako već ima aktivan paket čiji end_date nije prošao, produžavamo od tog datuma
+    if sub and sub.get("end_date") and sub["end_date"] >= today and sub.get("status") == "active":
+        base_date = sub["end_date"]
+    else:
+        base_date = today
+
+    new_end_date = base_date + timedelta(days=days)
+
+    conn = connect()
+    try:
+        conn.execute("""
+            INSERT INTO subscriptions (user_id, plan_name, status, start_date, end_date, renewal_date, notes)
+            VALUES (%s, %s, 'active', %s, %s, %s, %s)
+        """, (user_id, plan_name.lower(), today, new_end_date, new_end_date, note))
+        conn.commit()
+        return True, new_end_date
+    finally:
+        conn.close()

@@ -75,7 +75,11 @@
          class="sidebar__link {{ 'active' if nav == 'analytics_view' }}">
         <span class="sidebar__icon">📊</span> {{ t("analytics") }}
       </a>
-
+      <!-- Pretplata / Paket -->
+      <a href="{{ url_for('billing_view') }}"
+         class="sidebar__link {{ 'active' if nav == 'billing_view' }}">
+        <span class="sidebar__icon">⭐</span> Pretplata
+      </a>
       <!-- Usklađen link za Troškove -->
       <a href="{{ url_for('expenses_view') }}"
          class="sidebar__link {{ 'active' if nav == 'expenses_view' or request.path.startswith('/expenses') }}">
@@ -154,6 +158,10 @@
 
     {% if current_user.is_authenticated %}
     <div class="sidebar__footer">
+      <a href="{{ url_for('billing_view') }}"
+         class="sidebar__link {{ 'active' if nav == 'billing_view' }}">
+        <span class="sidebar__icon">⭐</span> Pretplata
+      </a>
       <a href="{{ url_for('help_view') }}"
          class="sidebar__link {{ 'active' if nav == 'help_view' }}">
         <span class="sidebar__icon">❓</span> {{ t("help_title") }}
@@ -212,6 +220,10 @@
 
         {# ===== Korisnik ===== #}
         {% if current_user.is_authenticated %}
+          <a href="{{ url_for('billing_view') }}" class="topbar__user" style="text-decoration:none;" title="Moj paket">
+            <span>⭐</span>
+            <span>Pretplata</span>
+          </a>
           <a href="{{ url_for('auth.profile') }}" class="topbar__user">
             <span>👤</span>
             <span>{{ current_user.name or current_user.email }}</span>
