@@ -518,23 +518,23 @@
   const SWIFT_CODE = "AAAARSBG"; // Standardni SWIFT za Yettel Bank a.d.
 
   function openPaymentEn(plan, price) {
-      const modal = document.getElementById('paymentModalEn');
-      document.getElementById('enModalPlan').innerText = plan;
-      document.getElementById('enModalPrice').innerText = price;
-      document.getElementById('enIban').innerText = EN_IBAN_NUMBER;
-      document.getElementById('enSwift').innerText = EN_SWIFT_CODE;
+    const modal = document.getElementById('paymentModalEn');
+    document.getElementById('enModalPlan').innerText = plan;
+    document.getElementById('enModalPrice').innerText = price;
+    document.getElementById('enIban').innerText = EN_IBAN_NUMBER;
+    document.getElementById('enSwift').innerText = EN_SWIFT_CODE;
 
-      // Generisanje referentnog broja
-      const refCode = "MS-" + Math.floor(1000 + Math.random() * 9000);
-      document.getElementById('enModalRef').innerText = refCode;
-      document.getElementById('enNoteRef').innerText = refCode;
+    // Generisanje referentnog broja
+    const refCode = "MS-" + Math.floor(1000 + Math.random() * 9000);
+    document.getElementById('enModalRef').innerText = refCode;
+    document.getElementById('enNoteRef').innerText = refCode;
 
-      modal.style.display = 'flex';
-    }
+    modal.style.display = 'flex';
+  }
 
-    function closePayModalEn() {
-      document.getElementById('paymentModalEn').style.display = 'none';
-    }
+  function closePayModalEn() {
+    document.getElementById('paymentModalEn').style.display = 'none';
+  }
 </script>
 
 </body>
