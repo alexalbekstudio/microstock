@@ -1,11 +1,10 @@
 # db_adapter.py
 """
-Adapter za PostgreSQL (Render i lokalno).
+Adapter za PostgreSQL (Render, Hetzner, Coolify i lokalno).
+- Thread-safe connection pool (ThreadedConnectionPool).
 - connect() vraća konekciju sa RealDictCursor (redovi se ponašaju kao dict).
 - execute() prima SQL sa %s placeholderima (PostgreSQL stil).
-- Postoji i helper query() koji odmah vraća listu dict-ova.
-
-NAPOMENA: Ovaj adapter je namenjen ISKLJUČIVO PostgreSQL-u.
+- Automatsko oslobađanje resursa i bezbedan rollback/close u pool.
 """
 
 import os
@@ -15,6 +14,7 @@ from contextlib import contextmanager
 import psycopg2
 import psycopg2.extras
 import psycopg2.extensions
+from psycopg2.pool import ThreadedConnectionPool
 
 # Konvertuj Decimal u float automatski
 DEC2FLOAT = psycopg2.extensions.new_type(
@@ -23,15 +23,11 @@ DEC2FLOAT = psycopg2.extensions.new_type(
     lambda value, curs: float(value) if value is not None else None
 )
 psycopg2.extensions.register_type(DEC2FLOAT)
-from psycopg2 import pool as pg_pool
-
 
 log = logging.getLogger(__name__)
 
-# Uvek PostgreSQL (nema više SQLite fallback-a)
 USE_POSTGRES = True
-
-DATABASE_URL = None  # postavlja se lenjo preko _database_url()
+DATABASE_URL = None
 
 
 def _refresh_module_globals():
@@ -50,6 +46,7 @@ def adapt_query(sql):
 
 def adapt_schema(schema_sql):
     return schema_sql
+
 
 # ---------------------------------------------------------------------------
 # Konfiguracija
@@ -73,14 +70,14 @@ def _database_url() -> str:
 _POOL = None
 
 
-def _get_pool() -> pg_pool.SimpleConnectionPool:
+def _get_pool() -> ThreadedConnectionPool:
     global _POOL
     if _POOL is None:
         dsn = _database_url()
-        log.info("Kreiram PostgreSQL connection pool")
-        _POOL = pg_pool.SimpleConnectionPool(
+        log.info("Kreiram PostgreSQL ThreadedConnectionPool")
+        _POOL = ThreadedConnectionPool(
             minconn=2,
-            maxconn=20,
+            maxconn=30,
             dsn=dsn,
             cursor_factory=psycopg2.extras.RealDictCursor,
             options="-c extra_float_digits=3",
@@ -89,7 +86,7 @@ def _get_pool() -> pg_pool.SimpleConnectionPool:
 
 
 # ---------------------------------------------------------------------------
-# Konekcija
+# Konekcija i Wrapper
 # ---------------------------------------------------------------------------
 
 class _ConnWrapper:
@@ -179,7 +176,6 @@ def connect():
         from flask import has_request_context, session, request
         if has_request_context():
             endpoint = request.endpoint or ""
-            # Sve što ima veze sa loginom, odjavom, profilom ili resetom šifre MORA biti public
             if (
                 "auth." in endpoint 
                 or request.path in ("/login", "/logout", "/demo/exit", "/forgot-password")
@@ -193,6 +189,43 @@ def connect():
         pass
 
     return _connect_public()
+
+
+def _connect_public():
+    """Garantovano vraća konekciju čiji je search_path postavljen na public."""
+    pool = _get_pool()
+    raw = pool.getconn()
+    try:
+        cur = raw.cursor()
+        try:
+            cur.execute("SET search_path TO public;")
+            raw.commit()
+        finally:
+            cur.close()
+    except Exception:
+        raw.rollback()
+        pool.putconn(raw)
+        raise
+    return _ConnWrapper(raw, pool)
+
+
+def connect_demo():
+    """Vraća konekciju u 'demo' schema (search_path: demo, public)."""
+    pool = _get_pool()
+    raw = pool.getconn()
+    try:
+        cur = raw.cursor()
+        try:
+            cur.execute("SET search_path TO demo, public;")
+            raw.commit()
+        finally:
+            cur.close()
+    except Exception as e:
+        raw.rollback()
+        pool.putconn(raw)
+        log.error(f"Ne mogu da postavim search_path na demo: {e}")
+        raise
+    return _ConnWrapper(raw, pool)
 
 
 # ---------------------------------------------------------------------------
@@ -266,35 +299,3 @@ def healthcheck():
 
 
 _refresh_module_globals()
-
-# ---------------------------------------------------------------------------
-# DEMO schema
-# ---------------------------------------------------------------------------
-
-def _connect_public():
-    """Garantovano vraća konekciju čiji je search_path postavljen na public."""
-    raw = _get_pool().getconn()
-    cur = raw.cursor()
-    try:
-        cur.execute("SET search_path TO public;")
-        raw.commit()
-    except Exception:
-        raw.rollback()
-    finally:
-        cur.close()
-    return _ConnWrapper(raw, _get_pool())
-
-
-def connect_demo():
-    """Vraća konekciju u 'demo' schema (search_path: demo, public)."""
-    raw = _get_pool().getconn()
-    cur = raw.cursor()
-    try:
-        cur.execute("SET search_path TO demo, public;")
-        raw.commit()
-    except Exception as e:
-        raw.rollback()
-        log.error(f"Ne mogu da postavim search_path na demo: {e}")
-    finally:
-        cur.close()
-    return _ConnWrapper(raw, _get_pool())
